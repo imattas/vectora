@@ -3,13 +3,17 @@ export function makeColorPicker(colors: readonly string[], selected: number, onS
   box.className = 'color-picker'; box.hidden = true; box.setAttribute('role', 'listbox');
   const wheel = document.createElement('div'); wheel.className = 'color-wheel'; wheel.title = 'Choose a hue'; wheel.setAttribute('aria-label', 'Color wheel');
   const marker = document.createElement('span'); marker.className = 'color-wheel-marker';
-  const choose = (event: PointerEvent) => {
+  const choose = (event: PointerEvent, close = false) => {
     const rect = wheel.getBoundingClientRect();
     const hue = (Math.atan2(event.clientY - rect.top - rect.height / 2, event.clientX - rect.left - rect.width / 2) * 180 / Math.PI + 360) % 360;
     const index = Math.min(colors.length - 1, Math.floor(hue / 360 * colors.length));
-    onSelect(index); marker.style.transform = `rotate(${hue}deg) translateY(-${rect.width * .38}px)`; box.hidden = true;
+    onSelect(index); marker.style.transform = `rotate(${hue}deg) translateY(-${rect.width * .38}px)`;
+    if (close) box.hidden = true;
   };
-  wheel.addEventListener('pointerdown', event => { wheel.setPointerCapture(event.pointerId); choose(event); });
+  wheel.addEventListener('pointerdown', event => { wheel.setPointerCapture(event.pointerId); choose(event); event.preventDefault(); });
+  wheel.addEventListener('pointermove', event => { if (wheel.hasPointerCapture(event.pointerId)) choose(event); });
+  wheel.addEventListener('pointerup', event => { if (wheel.hasPointerCapture(event.pointerId)) { choose(event, true); wheel.releasePointerCapture(event.pointerId); } });
+  wheel.addEventListener('pointercancel', event => { if (wheel.hasPointerCapture(event.pointerId)) wheel.releasePointerCapture(event.pointerId); });
   wheel.append(marker); box.append(wheel);
   const swatches = document.createElement('div'); swatches.className = 'color-wheel-swatches';
   colors.forEach((color, index) => {

@@ -1714,7 +1714,7 @@ function makeColorUI(eq: Equation): HTMLElement {
   const picker = makeColorPicker(colors, eq.colorIndex, index => {
     pushUndo(`color:${eq.id}`); eq.colorIndex = index; reconcile(); requestRender();
   });
-  picker.classList.add('eq-color-widget');
+  picker.classList.add('eq-color-widget', 'eq-widget');
   return picker;
 }
 
@@ -1915,7 +1915,7 @@ function renderAll() {
 function syncFromDOM() {
   for (const node of [...listEl.childNodes]) {
     if (node instanceof HTMLElement) {
-      if (node.classList.contains('eq-line') || node.classList.contains('eq-widget')) continue;
+      if (node.classList.contains('eq-line') || node.classList.contains('eq-widget') || node.classList.contains('eq-color-widget')) continue;
       if (node.tagName === 'BR') node.remove();
       else node.classList.add('eq-line');
     } else if (node.nodeType === Node.TEXT_NODE && node.textContent) {
