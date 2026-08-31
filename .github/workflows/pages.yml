@@ -40,4 +40,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v5
+        # Explicit Node 24 tag; the v4/v5 floating majors can otherwise be
+        # forced through the runner's transition runtime.
+        uses: actions/deploy-pages@v3.0.2-node.24
