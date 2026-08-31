@@ -94,15 +94,35 @@ export function analyzeGeometry(
         return result.value;
       }
       if (e.name === 'circle') {
-        if (e.args.length !== 2) throw new Error('circle takes a center point and radius.');
-        const center = resolvePoint(e.args[0]);
-        const radius = scalar(e.args[1], env);
+        // The expression parser flattens `(x, y)` when it appears as a call
+        // argument, so `circle((0, 0), 2)` arrives as `(0, 0, 2)` here.
+        // Normalize point arguments before validating the circle signature.
+        if (e.args.length < 2) throw new Error('circle takes a center point and radius.');
+        const args: Expr[] = [...pointArgs(e.args.slice(0, -1)), e.args[e.args.length - 1]];
+        if (args.length !== 2) throw new Error('circle takes a center point and radius.');
+        const center = resolvePoint(args[0]);
+        const radius = scalar(args[1], env);
         if (!Number.isFinite(radius) || radius <= 0) throw new Error('Circle radius must be positive.');
         return circle(center, radius);
       }
       if (e.name === 'polygon' || e.name === 'square') {
         const args = pointArgs(e.args);
-        if (args.length < 3) throw new Error(`${e.name} needs at least three points.`);
+        if (e.name === 'square') {
+          if (args.length !== 2) throw new Error('square takes two points.');
+          const a = resolvePoint(args[0]);
+          const b = resolvePoint(args[1]);
+          const dx = b.x - a.x;
+          const dy = b.y - a.y;
+          // Match the parser's square(A, B) lowering: erect the square to
+          // the left of A -> B so the overlay and the GPU plot agree.
+          return polygon([
+            a,
+            b,
+            { x: b.x - dy, y: b.y + dx },
+            { x: a.x - dy, y: a.y + dx },
+          ]);
+        }
+        if (args.length < 3) throw new Error('polygon needs at least three points.');
         return polygon(args.map(resolvePoint));
       }
       if (e.name === 'intersection') {

@@ -540,9 +540,10 @@ html, body {
 .symbol-keyboard-close { margin-top: 10px; padding: 3px 7px; border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 11px; }
 #keyboard-dock { flex: none; margin-top: auto; padding-top: 8px; border-top: 1px solid var(--divider); }
 #keyboard-dock::-webkit-scrollbar, .symbol-keyboard-popover::-webkit-scrollbar { display: none; width: 0; height: 0; }
-#geometry-readouts { margin: 8px 0; padding: 8px; border: 1px solid var(--panel-border); border-radius: 6px; background: var(--eq-focus); font: 12px ui-monospace, monospace; color: var(--muted); }
+#geometry-readouts { box-sizing: border-box; height: 112px; margin: 8px 0; padding: 8px; overflow-y: auto; border: 1px solid var(--panel-border); border-radius: 6px; background: var(--eq-focus); font: 12px ui-monospace, monospace; color: var(--muted); scrollbar-width: none; }
+#geometry-readouts::-webkit-scrollbar { display: none; width: 0; height: 0; }
 .geometry-panel-title { color: var(--text); font: 600 11px ui-sans-serif, system-ui; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }
-.geometry-readout { padding: 2px 0; }
+.geometry-readout { min-height: 18px; padding: 2px 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; line-height: 18px; }
 
 .onboarding-dialog { width: min(500px, calc(100vw - 32px)); padding: 0; border: 1px solid var(--panel-border); border-radius: 14px; background: var(--panel-bg); color: var(--text); box-shadow: 0 18px 70px rgba(0,0,0,.28); }
 .onboarding-dialog::backdrop { background: rgba(8, 11, 16, .58); backdrop-filter: blur(4px); }
