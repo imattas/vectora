@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <!-- min+max scale pin the installed app at exactly 1: the graph has its own
+       pinch-to-zoom, and a stray page zoom sticks across reloads with no way
+       back. Both bounds are needed — maximum-scale alone still leaves WebKit's
+       default minimum-scale of 0.25, so a pinch out could shrink the page.
+       Safari tabs deliberately ignore these, so ordinary browsing keeps
+       pinch-zoom and the accessibility escape hatch. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, viewport-fit=cover">
+  <title>Vectora — free online graphing calculator</title>
+  <meta name="description" content="Free in-browser graphing calculator. Plot implicit equations, inequalities, complex functions and 3D surfaces, compiled to your GPU as you type.">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Vectora — free online graphing calculator">
+  <meta property="og:description" content="Plot implicit equations, inequalities, complex functions and 3D surfaces in your browser. Graphs live in the URL, so every graph is a shareable link.">
+  <meta property="og:image" content="/shots/hero.png">
+  <!-- Installed to the Home Screen the app runs without browser chrome, which is
+       the only way viewport-fit=cover above can reach under the status bar and
+       home indicator. black-translucent puts the graph behind the status bar;
+       #panel offsets itself by the safe-area insets to stay clear of it. -->
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Vectora">
+  <meta name="theme-color" id="theme-color" content="#ffffff">
+  <link rel="icon" type="image/svg+xml" href="/icon.svg">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <!-- Root-relative: this page is also served at /g/<equations> share URLs,
+       where a relative href would resolve against /g/ and 404. -->
+  <link rel="stylesheet" href="/style.css">
+  <script>
+    // Set the theme before first paint so dark users never see a white flash.
+    // main.ts re-applies this (idempotent) and wires up the toggle + OS listener.
+    (function () {
+      try {
+        var s = localStorage.getItem('eq-theme');
+        var dark = s === 'dark' ||
+          (s !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+        document.getElementById('theme-color')
+          .setAttribute('content', dark ? '#171a1f' : '#ffffff');
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+  <canvas id="gl"></canvas>
+  <canvas id="overlay"></canvas>
+  <div id="render-status" role="status" aria-live="polite" hidden></div>
+  <div id="graph-controls" aria-label="Graph controls">
+    <button id="zoom-out" type="button" aria-label="Zoom out">−</button>
+    <button id="zoom-in" type="button" aria-label="Zoom in">＋</button>
+    <button id="home-view" type="button" aria-label="Reset view">⌂</button>
+  </div>
+  <div id="panel">
+    <div id="panel-header">
+      <a class="brand-link" href="/" aria-label="Vectora home"><img class="brand-logo" src="/icon.svg" alt=""><span class="brand">Vectora</span></a>
+      <span class="brand-subtitle">graphing studio</span>
+      <div class="header-actions">
+        <a class="header-link" href="/help/">Help</a>
+        <button id="onboarding-help" type="button" aria-label="Open Vectora onboarding" title="Open onboarding">?</button>
+        <button id="theme-toggle" type="button" aria-label="Switch to dark mode" title="Switch to dark mode"><span aria-hidden="true">☾</span></button>
+      </div>
+    </div>
+    <!-- Resize strip on the sidebar edge. Drag to change the width;
+         double-click or Enter resets. -->
+    <div id="panel-resize" role="separator" aria-orientation="vertical" tabindex="0"
+         aria-label="Resize the equations panel"
+         title="Drag to resize the panel; double-click to reset"></div>
+    <button id="state-reset" type="button" aria-label="Restart the simulation" title="Restart the simulation" hidden>↻</button>
+    <div id="sidebar-actions" aria-label="Add items"></div>
+    <div id="equations" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Equations, one per line" spellcheck="false" autocapitalize="off" autocorrect="off" enterkeyhint="enter"></div>
+    <div id="geometry-readouts" hidden></div>
+    <details id="examples">
+      <summary>Examples</summary>
+      <div id="examples-list"></div>
+    </details>
+    <div id="keyboard-dock"></div>
+  </div>
+  <noscript>
+    <h1>Vectora — free online graphing calculator</h1>
+    <p>
+      Vectora plots 2D curves, inequality regions, scalar fields, complex
+      functions, 3D surfaces and parametric curves in your browser (WebGL,
+      JavaScript required).
+    </p>
+    <p>
+      The entire graph state lives in the URL, so a link can open the
+      app with equations already rendered:
+      <code>/g/&lt;equation&gt;;&lt;equation&gt;;...</code> —
+      percent-encode each equation (encodeURIComponent, plus parens as %28
+      %29), join with <code>;</code>. Examples: a parabola is
+      /g/y%20%3D%20x%5E2 and a 3D cylinder is
+      /g/%28cos%282pi%20u%29%2C%20sin%282pi%20u%29%2C%204v-2%29
+    </p>
+  </noscript>
+  <script type="module" src="/main.ts"></script>
+</body>
+</html>

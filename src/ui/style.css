@@ -1,0 +1,570 @@
+* { box-sizing: border-box; }
+
+/* The graph owns every gesture: one finger pans it, two pinch it (see the
+   pointer handlers in main.ts), so no touch should reach the viewport's own
+   pan/zoom — an accidental page zoom has no way back short of a reload.
+   Blanket rather than per-element so a pinch that happens to start on the
+   equation text can't leak through; `pan-x pan-y` rather than `none` leaves
+   the caret, text selection, and the panel's internal scrolling alone. */
+* { touch-action: pan-x pan-y; }
+
+/* The page is an app, not a document: chrome, buttons and the graph never
+   select (no blue sweep on select-all, no long-press selection on labels).
+   Only real text surfaces opt back in — the equation editor and the slider
+   bound fields below. Inherited, so those two opt-ins cover their subtrees. */
+body {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Light theme (default). The dark overrides live in [data-theme="dark"] below;
+   the JS theme switch flips data-theme on <html>, so every panel color moves
+   with the WebGL background in one place. */
+:root {
+  --sidebar-width: 340px;
+  --page-bg: #fff;
+  --panel-bg: rgba(255, 255, 255, 0.92);
+  --panel-border: rgba(0, 0, 0, 0.1);
+  --panel-shadow: rgba(0, 0, 0, 0.12);
+  --text: #222;
+  --dot-border: rgba(0, 0, 0, 0.15);
+  --eq-focus: rgba(0, 90, 200, 0.05);
+  --error-line: #d33;
+  --error: #c0392b;
+  --info: #557;
+  --placeholder: #aaa;
+  --accent: #2d70b3;
+  --bound: #999;
+  --bound-focus: #333;
+  --divider: rgba(0, 0, 0, 0.06);
+  --muted: #888;
+  --muted-hover: #444;
+  --summary: #555;
+  --summary-hover: #000;
+  --ex-text: #333;
+  --ex-hover-bg: rgba(0, 90, 200, 0.08);
+  --ex-code: #999;
+  --ex-code-hover: #667;
+}
+
+:root[data-theme="dark"] {
+  --page-bg: #171a1f;
+  --panel-bg: rgba(24, 27, 33, 0.92);
+  --panel-border: rgba(255, 255, 255, 0.12);
+  --panel-shadow: rgba(0, 0, 0, 0.5);
+  --text: #e6e8ea;
+  --dot-border: rgba(255, 255, 255, 0.22);
+  --eq-focus: rgba(90, 150, 255, 0.14);
+  --error-line: #f0575c;
+  --error: #f0797d;
+  --info: #97a3b8;
+  --placeholder: #5f6672;
+  --accent: #5a9bf0;
+  --bound: #767c88;
+  --bound-focus: #cfd3da;
+  --divider: rgba(255, 255, 255, 0.08);
+  --muted: #868d99;
+  --muted-hover: #c3c8d0;
+  --summary: #a8aeba;
+  --summary-hover: #fff;
+  --ex-text: #cfd3da;
+  --ex-hover-bg: rgba(90, 150, 255, 0.14);
+  --ex-code: #767c88;
+  --ex-code-hover: #97a3b8;
+}
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: var(--page-bg);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+#gl, #overlay {
+  position: absolute;
+  top: 0;
+  left: var(--sidebar-width);
+  width: calc(100% - var(--sidebar-width));
+  /* Installed on iOS with a translucent status bar, WebKit shortens the
+     viewport by the status bar height but still lays the page out from the top
+     of the screen, stranding a dead band above the home indicator (measured:
+     402x874 screen, 402x812 viewport, 62px top inset). Add the inset back so
+     the canvas reaches the bottom edge. Everywhere else the inset is 0 and this
+     is plain 100%. */
+  height: calc(100% + env(safe-area-inset-top));
+}
+#gl { touch-action: none; }
+#overlay { pointer-events: none; }
+#graph-controls { position: fixed; z-index: 3; left: calc(var(--sidebar-width) + 14px); bottom: 14px; display: flex; gap: 4px; }
+#graph-controls button { width: 30px; height: 30px; border: 1px solid var(--panel-border); border-radius: 6px; background: var(--panel-bg); color: var(--text); box-shadow: 0 2px 8px var(--panel-shadow); cursor: pointer; font-size: 18px; }
+#graph-controls button:hover { background: var(--eq-focus); border-color: var(--accent); }
+
+#tooltip {
+  position: fixed;
+  display: none;
+  pointer-events: none;
+  background: var(--panel-bg);
+  color: var(--text);
+  border: 1.5px solid var(--muted);
+  border-radius: 6px;
+  box-shadow: 0 2px 10px var(--panel-shadow);
+  padding: 5px 9px;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre;
+  z-index: 20;
+}
+#tooltip::first-line {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+#panel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: var(--sidebar-width);
+  height: 100%;
+  overflow: hidden;
+  min-width: 220px;
+  /* The sidebar scrolls internally while the graph owns the canvas gesture. */
+  touch-action: pan-y;
+  max-width: min(560px, calc(100% - 48px));
+  display: flex;
+  flex-direction: column;
+  background: var(--panel-bg);
+  backdrop-filter: blur(8px);
+  border: 0;
+  border-right: 1px solid var(--panel-border);
+  border-radius: 0;
+  box-shadow: 3px 0 18px var(--panel-shadow);
+  padding: calc(12px + env(safe-area-inset-top)) 10px calc(10px + env(safe-area-inset-bottom));
+}
+#render-status { position: fixed; z-index: 10; left: 50%; top: 1rem; transform: translateX(-50%); padding: .55rem .8rem; border-radius: 6px; background: var(--panel-bg); color: var(--text); box-shadow: 0 2px 12px var(--panel-shadow); }
+
+/* The persistent Vectora sidebar header. */
+#panel-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  padding: 2px 4px 10px;
+  border-bottom: 1px solid var(--divider);
+}
+#panel-header .brand-link { display: inline-flex; align-items: center; gap: 7px; color: var(--text); text-decoration: none; }
+#panel-header .brand-logo { width: 22px; height: 22px; display: block; }
+#panel-header .brand {
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+#panel-header .brand-subtitle { color: var(--muted); font-size: 11px; }
+#panel-header .header-actions { margin-left: auto; display: flex; align-items: center; gap: 5px; }
+.header-link { color: var(--muted); text-decoration: none; font-size: 12px; padding: 4px 5px; }
+.header-link:hover { color: var(--muted-hover); }
+#onboarding-help { width: 24px; height: 24px; border: 1px solid var(--panel-border); border-radius: 50%; background: transparent; color: var(--muted); cursor: pointer; font: 600 12px ui-sans-serif, system-ui; }
+#onboarding-help:hover, #onboarding-help:focus-visible { color: var(--text); border-color: var(--accent); outline: none; }
+
+/* The resize strip (panel-resize.ts) sits on the sidebar's outer edge. */
+#panel-resize {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -5px;
+  width: 10px;
+  z-index: 1;
+  cursor: ew-resize;
+  /* No browser pan may start on the strip: its pointermoves keep arriving
+     for the whole drag, same deal as the grip. */
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+#panel-resize::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 4px;
+  height: 36px;
+  margin: -18px 0 0 -2px;
+  border-radius: 2px;
+}
+#panel-resize:hover::after,
+#panel-resize:active::after { background: var(--panel-border); }
+/* Keyboard focus shows the pill in the accent color instead of the default
+   outline, which would trace the whole off-edge strip. */
+#panel-resize { outline: none; }
+#panel-resize:focus-visible::after { background: var(--accent); }
+
+#theme-toggle,
+#state-reset {
+  position: static;
+  z-index: 2;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 24px;
+  text-align: center;
+  cursor: pointer;
+}
+/* Only present while a row defines a state (`a' = …`). */
+#theme-toggle { width: 28px; height: 28px; font-size: 16px; }
+#state-reset { position: absolute; top: 6px; right: 6px; font-size: 14px; }
+#state-reset[hidden] { display: none; }
+#theme-toggle:hover,
+#state-reset:hover { background: var(--eq-focus); color: var(--muted-hover); }
+
+#equations {
+  /* Scrolls when the list outgrows the panel's max-height. `none` (not
+     `contain`) so a scroll that hits the end neither chains into a page
+     bounce nor bounces the list itself — at the edge the browser lets go of
+     the touch, which is what hands "keep swiping past the end" to the
+     panel-dismiss gesture (panel-swipe.ts), the way iOS sheets take over
+     from their scroll views. */
+  overflow-y: auto;
+  scrollbar-width: none;
+  min-height: 0;
+  flex: 0 1 auto;
+  overscroll-behavior: none;
+  outline: none;
+  color: var(--text);
+  font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  padding: 2px 0;
+  caret-color: var(--text);
+  /* Opt back out of the body's user-select: none — explicitly, because on
+     iOS a non-selectable ancestor otherwise leaves the editable untappable. */
+  user-select: text;
+  -webkit-user-select: text;
+}
+.eq-line {
+  position: relative;
+  padding: 4px 6px 4px 28px;
+  border-radius: 6px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  min-height: 1.5em;
+}
+.eq-line::before {
+  /* color dot; clicks in the left gutter cycle the color */
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 8.5px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--eq-color, #ccc);
+  border: 1px solid var(--dot-border);
+  cursor: pointer;
+}
+.eq-line.is-def::before { visibility: hidden; }
+/* `# label` comment rows head a collapsible group; the gutter chevron
+   (replacing the color dot) toggles it. */
+.eq-line.is-comment {
+  color: var(--muted);
+  font-weight: 600;
+}
+.eq-line.is-comment::before {
+  content: '▸';
+  background: none;
+  border: none;
+  border-radius: 0;
+  top: 4px;
+  width: 14px;
+  height: auto;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 22px;
+  text-align: center;
+  transform: rotate(90deg);
+  transition: transform 0.12s;
+}
+.eq-line.is-comment.collapsed::before { transform: none; }
+.eq-line.is-comment.collapsed::after {
+  content: attr(data-hidden);
+  margin-left: 10px;
+  color: var(--placeholder);
+  font: 11px ui-sans-serif, system-ui, sans-serif;
+}
+/* Rows inside a collapsed group; they stay in the DOM (copy/undo/share). */
+#equations .eq-hidden { display: none; }
+.eq-line.focused { background: var(--eq-focus); }
+.eq-line.geometry-dependent { box-shadow: inset 2px 0 0 var(--accent); background: var(--eq-focus); }
+.eq-line.hidden-expression { opacity: .48; }
+.eq-color-widget { position: relative; display: block; margin-left: 28px; height: 0; vertical-align: top; }
+.row-color-trigger, .row-options-trigger { position: absolute; top: -27px; border: 0; cursor: pointer; }
+.row-color-trigger { left: -22px; width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--dot-border); }
+.row-options-trigger { right: 2px; top: 50%; width: 24px; height: 24px; transform: translateY(-50%); background: transparent; color: var(--muted); font-size: 16px; opacity: 0; transition: opacity .12s; }
+.row-options-trigger:hover { color: var(--text); }
+.eq-line:hover .row-options-trigger, .eq-line.focused .row-options-trigger, .row-options-trigger:focus { opacity: 1; }
+.color-picker, .row-options, .add-menu-popover { position: absolute; z-index: 5; padding: 5px; border: 1px solid var(--panel-border); border-radius: 6px; background: var(--panel-bg); box-shadow: 0 4px 14px var(--panel-shadow); }
+.color-picker[hidden], .row-options[hidden], .add-menu-popover[hidden] { display: none !important; }
+.color-picker { top: -8px; left: 0; width: 132px; }
+.color-wheel { position: relative; width: 112px; height: 112px; margin: 3px auto 7px; border-radius: 50%; cursor: crosshair; background: radial-gradient(circle, #fff 0 5%, transparent 62%), conic-gradient(#f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00); box-shadow: inset 0 0 0 1px var(--dot-border); }
+.color-wheel-marker { position: absolute; left: 50%; top: 50%; width: 8px; height: 8px; margin: -4px; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 0 1px #333; pointer-events: none; }
+.color-wheel-swatches { display: flex; justify-content: center; gap: 4px; }
+.color-swatch { width: 18px; height: 18px; padding: 0; border: 1px solid var(--dot-border); border-radius: 50%; cursor: pointer; }
+.row-options { top: 28px; right: 0; min-width: 96px; }
+.row-options button, .add-menu-item { display: block; width: 100%; border: 0; background: transparent; color: var(--text); text-align: left; padding: 5px 7px; cursor: pointer; font: 12px ui-sans-serif, system-ui; }
+.row-options button:hover, .add-menu-item:hover { background: var(--eq-focus); }
+.row-options-wrap { position: absolute; inset: 0; display: block; pointer-events: none; }
+.row-options-wrap .row-options-trigger, .row-options-wrap .row-options { pointer-events: auto; }
+.eq-line.invalid { box-shadow: inset 0 -1px var(--error-line); }
+.eq-line[data-ph]::after {
+  /* Overlay the empty line: in-flow it would land after the line's <br>,
+     rendering on a second visual line and doubling the row height. */
+  content: attr(data-ph);
+  position: absolute;
+  left: 28px;
+  top: 4px;
+  color: var(--placeholder);
+  pointer-events: none;
+}
+.eq-widget {
+  user-select: none;
+  -webkit-user-select: none;
+}
+.eq-slider {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px 3px 28px;
+}
+.eq-slider-range {
+  flex: 1;
+  min-width: 0;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.eq-slider-bound {
+  flex: none;
+  width: 46px;
+  border: none;
+  outline: none;
+  background: none;
+  font: 11px ui-monospace, "SF Mono", Menlo, monospace;
+  color: var(--bound);
+  text-align: center;
+  appearance: textfield;
+  -moz-appearance: textfield;
+  /* Editable despite sitting inside a non-selectable .eq-widget. */
+  user-select: text;
+  -webkit-user-select: text;
+}
+.eq-slider-bound:focus { color: var(--bound-focus); }
+.eq-slider-bound::-webkit-outer-spin-button,
+.eq-slider-bound::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.eq-levels {
+  display: block;
+  margin: 0 0 3px 28px; /* clears the color-dot gutter, like the other widgets */
+  border: 1px solid var(--dot-border);
+  border-radius: 9px;
+  background: none;
+  color: var(--muted);
+  font: 10.5px ui-sans-serif, system-ui, sans-serif;
+  padding: 1px 8px;
+  cursor: pointer;
+}
+.eq-levels:hover { color: var(--muted-hover); border-color: var(--panel-border); }
+/* "on" inverts against the page so it reads in both themes. */
+.eq-levels.on { background: var(--accent); border-color: var(--accent); color: var(--page-bg); }
+.eq-curve {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 6px 3px 28px;
+}
+.eq-curve-label {
+  flex: none;
+  font: 11px ui-monospace, "SF Mono", Menlo, monospace;
+  color: var(--bound);
+}
+.eq-curve-toggle {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font: italic 12px ui-sans-serif, system-ui;
+  color: var(--summary);
+  cursor: pointer;
+}
+.eq-curve-toggle input {
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.eq-error {
+  color: var(--error);
+  font-size: 11px;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  padding: 0 6px 3px 28px;
+}
+.eq-info {
+  color: var(--info);
+  font-size: 11px;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  padding: 0 6px 3px 28px;
+}
+/* Per-row display toggles (Σ partial sums on sequences, bars on data lists). */
+.eq-toggles {
+  display: flex;
+  gap: 6px;
+  padding: 0 6px 4px 28px;
+}
+.eq-toggle {
+  border: 1px solid var(--divider);
+  border-radius: 999px;
+  background: none;
+  color: var(--muted);
+  font: 11px ui-sans-serif, system-ui, sans-serif;
+  line-height: 1;
+  cursor: pointer;
+  padding: 3px 8px;
+}
+.eq-toggle:hover { color: var(--muted-hover); }
+.eq-toggle.on {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+#examples {
+  /* Never shrinks (the summary row stays visible), but caps itself and scrolls
+     internally so an open example tree can't push the panel past its max.
+     `none` so scrolling remains contained within the sidebar. */
+  flex: none;
+  max-height: 40%;
+  overflow-y: auto;
+  overscroll-behavior: none;
+  border-top: 1px solid var(--divider);
+  margin-top: 4px;
+  padding: 4px;
+  font-size: 12px;
+}
+#panel-links {
+  position: absolute;
+  right: 14px;
+  /* sits on the examples summary row (panel padding + summary padding) */
+  bottom: 14px;
+  font-size: 12px;
+  display: flex;
+  gap: 10px;
+}
+#panel-links a {
+  color: var(--muted);
+  text-decoration: none;
+}
+#panel-links a:hover { color: var(--muted-hover); text-decoration: underline; }
+#examples[open] ~ #panel-links { display: none; }
+#examples > summary {
+  color: var(--muted);
+  cursor: pointer;
+  padding: 2px;
+}
+#examples > summary:hover { color: var(--muted-hover); }
+#examples details {
+  margin: 2px 0 2px 8px;
+}
+#examples details > summary {
+  color: var(--summary);
+  cursor: pointer;
+  padding: 2px;
+  font-weight: 500;
+}
+#examples details > summary:hover { color: var(--summary-hover); }
+.ex-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 3px 4px 3px 14px;
+  border-radius: 4px;
+  color: var(--ex-text);
+  font-size: 12px;
+}
+.ex-item:hover { background: var(--ex-hover-bg); }
+.ex-item code {
+  display: block;
+  color: var(--ex-code);
+  font: 10.5px ui-monospace, Menlo, monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ex-item:hover code { color: var(--ex-code-hover); }
+
+@media (max-width: 640px) {
+  #panel {
+    width: min(var(--sidebar-width), calc(100% - 48px));
+  }
+  #gl, #overlay {
+    left: min(var(--sidebar-width), calc(100% - 48px));
+    width: calc(100% - min(var(--sidebar-width), calc(100% - 48px)));
+  }
+  #graph-controls { left: calc(min(var(--sidebar-width), calc(100% - 48px)) + 10px); }
+}
+#equations::-webkit-scrollbar { display: none; width: 0; height: 0; }
+#panel, #examples { scrollbar-width: none; }
+#panel::-webkit-scrollbar, #examples::-webkit-scrollbar { display: none; width: 0; height: 0; }
+#sidebar-actions { padding: 8px 0 5px; border-bottom: 1px solid var(--divider); }
+.add-menu { position: relative; display: inline-block; }
+.sidebar-action { min-height: 28px; margin-left: 5px; padding: 0 9px; border: 1px solid var(--panel-border); border-radius: 5px; background: transparent; color: var(--muted); font: 11px ui-sans-serif, system-ui; cursor: pointer; }
+.add-menu-trigger { width: 32px; height: 28px; border: 1px solid var(--panel-border); border-radius: 5px; background: transparent; color: var(--text); font-size: 18px; cursor: pointer; }
+.add-menu-trigger:hover { border-color: var(--accent); background: var(--eq-focus); }
+.sidebar-action:hover { color: var(--text); border-color: var(--accent); background: var(--eq-focus); }
+.add-menu-popover { top: 32px; left: 0; min-width: 150px; }
+.symbol-keyboard-wrap { position: relative; display: block; }
+.symbol-keyboard-trigger { width: 100%; margin: 0; padding: 0 8px; font-size: 15px; }
+.symbol-keyboard-popover { position: fixed; z-index: 30; left: 10px; bottom: 45px; width: min(300px, calc(var(--sidebar-width) - 20px), calc(100vw - 58px)); max-height: min(52vh, 360px); overflow-y: auto; padding: 10px; border: 1px solid var(--panel-border); border-radius: 7px 7px 0 0; background: var(--panel-bg); box-shadow: 0 -8px 24px var(--panel-shadow); scrollbar-width: none; }
+.symbol-keyboard-title { margin-bottom: 7px; color: var(--text); font-size: 12px; font-weight: 650; }
+.symbol-keyboard-group { margin: 8px 0 4px; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; }
+.symbol-keyboard-row { display: flex; flex-wrap: wrap; gap: 4px; }
+.symbol-key { width: 26px; height: 26px; padding: 0; border: 1px solid var(--panel-border); border-radius: 4px; background: transparent; color: var(--text); cursor: pointer; font-size: 15px; }
+.symbol-key:hover, .symbol-key:focus-visible { border-color: var(--accent); background: var(--eq-focus); outline: none; }
+.symbol-keyboard-close { margin-top: 10px; padding: 3px 7px; border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 11px; }
+#keyboard-dock { flex: none; margin-top: auto; padding-top: 8px; border-top: 1px solid var(--divider); }
+#keyboard-dock::-webkit-scrollbar, .symbol-keyboard-popover::-webkit-scrollbar { display: none; width: 0; height: 0; }
+#geometry-readouts { margin: 8px 0; padding: 8px; border: 1px solid var(--panel-border); border-radius: 6px; background: var(--eq-focus); font: 12px ui-monospace, monospace; color: var(--muted); }
+.geometry-panel-title { color: var(--text); font: 600 11px ui-sans-serif, system-ui; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }
+.geometry-readout { padding: 2px 0; }
+
+.onboarding-dialog { width: min(500px, calc(100vw - 32px)); padding: 0; border: 1px solid var(--panel-border); border-radius: 14px; background: var(--panel-bg); color: var(--text); box-shadow: 0 18px 70px rgba(0,0,0,.28); }
+.onboarding-dialog::backdrop { background: rgba(8, 11, 16, .58); backdrop-filter: blur(4px); }
+.onboarding-shell { position: relative; padding: 34px 36px 28px; }
+.onboarding-close { position: absolute; top: 12px; right: 14px; border: 0; background: transparent; color: var(--muted); font-size: 24px; line-height: 1; cursor: pointer; }
+.onboarding-close:hover, .onboarding-close:focus-visible { color: var(--text); outline: none; }
+.onboarding-eyebrow { color: var(--accent); font: 700 10px ui-monospace, monospace; letter-spacing: .14em; }
+.onboarding-dialog h1 { margin: 12px 0 10px; font: 650 28px/1.1 ui-sans-serif, system-ui; letter-spacing: -.03em; }
+.onboarding-dialog p { margin: 0; color: var(--summary); font-size: 14px; line-height: 1.55; }
+.onboarding-note { margin-top: 16px !important; color: var(--muted) !important; font-size: 12px !important; }
+.onboarding-hint { display: block; margin-top: 20px; padding: 9px 11px; border: 1px solid var(--divider); border-radius: 7px; color: var(--accent); font: 12px ui-monospace, monospace; overflow-wrap: anywhere; }
+.onboarding-progress { display: flex; gap: 5px; margin-top: 22px; }
+.onboarding-progress span { width: 20px; height: 3px; border-radius: 5px; background: var(--divider); }
+.onboarding-progress span.active { background: var(--accent); }
+.onboarding-footer { display: flex; align-items: center; gap: 8px; margin-top: 28px; }
+.onboarding-footer button { min-height: 32px; padding: 0 12px; border-radius: 6px; cursor: pointer; font: 600 12px ui-sans-serif, system-ui; }
+.onboarding-primary { border: 1px solid var(--accent); background: var(--accent); color: var(--page-bg); }
+.onboarding-primary:hover { filter: brightness(1.08); }
+.onboarding-secondary { border: 1px solid var(--panel-border); background: transparent; color: var(--text); }
+.onboarding-secondary:hover { border-color: var(--accent); }
+.onboarding-text { margin-left: auto; border: 0; background: transparent; color: var(--muted); }
+.onboarding-text:hover { color: var(--text); }
+.onboarding-footer button:disabled { cursor: default; opacity: .35; }
+@media (max-width: 640px) { .onboarding-shell { padding: 30px 24px 24px; } .onboarding-dialog h1 { font-size: 24px; } }
+@media (prefers-reduced-motion: reduce) { .onboarding-dialog::backdrop { backdrop-filter: none; } }

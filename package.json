@@ -1,0 +1,29 @@
+{
+  "name": "vectora",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "test": "vitest",
+    "coverage": "vitest run --coverage",
+    "web": "vite",
+    "web:build": "vite build",
+    "icons": "node scripts/icons.ts",
+    "typecheck": "tsc --noEmit && tsc -p src/ui --noEmit",
+    "test:editor": "node scripts/editor-test.ts",
+    "bench": "vitest bench --run",
+    "perf": "node scripts/perf.ts",
+    "perf:update": "node scripts/perf.ts --update"
+  },
+  "private": true,
+  "license": "MIT",
+  "engines": {
+    "node": ">=24"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "playwright": "^1.62.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.1",
+    "vitest": "^4.1.10"
+  }
+}

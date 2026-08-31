@@ -1,0 +1,7 @@
+# Vectora is a static graphing studio. Graphs open directly via
+# /g/<percent-encoded equations joined with ;>.
+
+User-agent: *
+Allow: /
+
+Sitemap: /sitemap.xml
