@@ -1,0 +1,42 @@
+export type SheetState = 'open' | 'collapsed';
+
+export function swipeState(deltaY: number, threshold = 30): SheetState | null {
+  if (!Number.isFinite(deltaY) || Math.abs(deltaY) < threshold) return null;
+  return deltaY > 0 ? 'collapsed' : 'open';
+}
+
+export interface MobileSheet {
+  setState(state: SheetState): void;
+  toggle(): void;
+  isCollapsed(): boolean;
+  destroy(): void;
+}
+
+/** Bind the accessible toggle and header swipe for the narrow-screen sheet. */
+export function initMobileSheet(
+  panel: HTMLElement,
+  toggle: HTMLButtonElement,
+  header: HTMLElement,
+  isMobile: () => boolean = () => window.matchMedia('(max-width: 640px)').matches,
+): MobileSheet {
+  let state: SheetState = panel.classList.contains('mobile-collapsed') ? 'collapsed' : 'open';
+  let pointer: { id: number; y: number } | null = null;
+  const setState = (next: SheetState) => {
+    state = next;
+    panel.classList.toggle('mobile-collapsed', next === 'collapsed');
+    toggle.setAttribute('aria-expanded', String(next === 'open'));
+    toggle.textContent = next === 'collapsed' ? '☰ Expressions' : '× Close panel';
+  };
+  const onToggle = () => setState(state === 'open' ? 'collapsed' : 'open');
+  const onDown = (event: PointerEvent) => { if (isMobile()) { pointer = { id: event.pointerId, y: event.clientY }; header.setPointerCapture(event.pointerId); } };
+  const onUp = (event: PointerEvent) => {
+    if (!pointer || pointer.id !== event.pointerId) return;
+    const next = swipeState(event.clientY - pointer.y); if (next) setState(next); pointer = null;
+  };
+  const onCancel = () => { pointer = null; };
+  toggle.addEventListener('click', onToggle);
+  header.addEventListener('pointerdown', onDown);
+  header.addEventListener('pointerup', onUp);
+  header.addEventListener('pointercancel', onCancel);
+  return { setState, toggle: onToggle, isCollapsed: () => state === 'collapsed', destroy: () => { toggle.removeEventListener('click', onToggle); header.removeEventListener('pointerdown', onDown); header.removeEventListener('pointerup', onUp); header.removeEventListener('pointercancel', onCancel); } };
+}

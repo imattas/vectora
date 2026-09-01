@@ -83,6 +83,7 @@ import { renderMathPreview } from '../components/math-display.ts';
 import { DEFAULT_GRAPH_SETTINGS, loadGraphSettings, saveGraphSettings, type GraphSettings } from '../components/graph-settings.ts';
 import { deleteWorkspace, exportWorkspaces, importWorkspaces, listWorkspaces, loadWorkspace, saveWorkspace } from '../state/workspaces.ts';
 import { getFunctionCompletions } from '../components/function-autocomplete.ts';
+import { initMobileSheet } from '../components/mobile-sheet.ts';
 
 interface Equation {
   id: number;
@@ -3311,28 +3312,7 @@ const addActions = document.getElementById('sidebar-actions');
 const mobilePanelToggle = document.getElementById('mobile-panel-toggle');
 const panel = document.getElementById('panel');
 const panelHeader = document.getElementById('panel-header');
-let sheetPointer: { id: number; y: number } | null = null;
-const setMobilePanel = (collapsed: boolean) => {
-  if (!panel || !mobilePanelToggle) return;
-  panel.classList.toggle('mobile-collapsed', collapsed);
-  mobilePanelToggle.setAttribute('aria-expanded', String(!collapsed));
-  mobilePanelToggle.textContent = collapsed ? '☰ Expressions' : '× Close panel';
-};
-mobilePanelToggle?.addEventListener('click', () => {
-  setMobilePanel(!panel?.classList.contains('mobile-collapsed'));
-});
-panelHeader?.addEventListener('pointerdown', event => {
-  if (window.matchMedia('(min-width: 641px)').matches) return;
-  sheetPointer = { id: event.pointerId, y: event.clientY };
-  panelHeader.setPointerCapture(event.pointerId);
-});
-panelHeader?.addEventListener('pointerup', event => {
-  if (!sheetPointer || sheetPointer.id !== event.pointerId) return;
-  const dy = event.clientY - sheetPointer.y;
-  if (Math.abs(dy) >= 30) setMobilePanel(dy > 0);
-  sheetPointer = null;
-});
-panelHeader?.addEventListener('pointercancel', () => { sheetPointer = null; });
+if (panel && mobilePanelToggle && panelHeader) initMobileSheet(panel, mobilePanelToggle, panelHeader);
 function clearWorkspace() {
   pushUndo('clear'); equations.length = 0; addEquation(''); recompileAll(); renderAll(); saveUrl(); requestRender();
 }
