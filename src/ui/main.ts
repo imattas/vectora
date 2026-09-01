@@ -2636,6 +2636,8 @@ function movePoint(pt: Grabbable, x: number, y: number) {
 // --- hover: intercepts and roots ---
 
 let hover: { pt: SpecialPoint; color: string } | null = null;
+let pinned: { pt: SpecialPoint; color: string } | null = null;
+let clickCandidate: { pt: SpecialPoint; color: string } | null = null;
 
 const tooltip = document.createElement('div');
 tooltip.id = 'tooltip';
@@ -2780,6 +2782,7 @@ function pointsFor(eq: Equation): SpecialPoint[] {
 }
 
 function setHover(next: { pt: SpecialPoint; color: string } | null) {
+  if (pinned) return;
   if (hover?.pt === next?.pt && hover?.color === next?.color) return;
   hover = next;
   if (!hover) {
@@ -2866,12 +2869,30 @@ function updateHover(clientX: number, clientY: number) {
   requestRender();
 }
 
+function setPinned(next: { pt: SpecialPoint; color: string } | null) {
+  pinned = next;
+  tooltip.classList.toggle('pinned', !!next);
+  if (!next) { tooltip.style.display = 'none'; requestRender(); return; }
+  const { rect, toSx, toSy } = screenMap();
+  tooltip.replaceChildren();
+  const text = document.createElement('div'); text.textContent = next.pt.lines.join('\n'); text.style.whiteSpace = 'pre'; tooltip.append(text);
+  const copy = document.createElement('button'); copy.type = 'button'; copy.className = 'tooltip-copy'; copy.textContent = 'Copy coordinates';
+  copy.addEventListener('click', async () => {
+    const point = `(${fmtNum(next.pt.x)}, ${fmtNum(next.pt.y)})`;
+    try { await navigator.clipboard.writeText(point); copy.textContent = 'Copied'; } catch { copy.textContent = point; }
+  });
+  tooltip.append(copy); tooltip.style.borderColor = next.color;
+  tooltip.style.left = `${rect.left + toSx(next.pt.x) + 14}px`; tooltip.style.top = `${rect.top + toSy(next.pt.y) + 12}px`; tooltip.style.display = 'block';
+  requestRender();
+}
+
 /** Marker for the hovered point, drawn over the axis labels. */
 function drawHoverMarker(dpr: number) {
-  if (!hover || mode !== '2d' || !graphSettings.points) return;
+  const active = pinned ?? hover;
+  if (!active || mode !== '2d' || !graphSettings.points) return;
   const { toSx, toSy } = screenMap();
-  const sx = toSx(hover.pt.x);
-  const sy = toSy(hover.pt.y);
+  const sx = toSx(active.pt.x);
+  const sy = toSy(active.pt.y);
   const ctx = overlayCtx;
   ctx.save();
   ctx.scale(dpr, dpr);
@@ -2880,11 +2901,11 @@ function drawHoverMarker(dpr: number) {
   ctx.fillStyle = theme.pointOutline; // reads as a halo in either theme
   ctx.fill();
   ctx.lineWidth = 2.25;
-  ctx.strokeStyle = hover.color;
+  ctx.strokeStyle = active.color;
   ctx.stroke();
   ctx.beginPath();
   ctx.arc(sx, sy, 2, 0, Math.PI * 2);
-  ctx.fillStyle = hover.color;
+  ctx.fillStyle = active.color;
   ctx.fill();
   ctx.restore();
 }
@@ -2921,6 +2942,8 @@ function zoomAt(clientX: number, clientY: number, factor: number) {
 }
 
 canvas.addEventListener('pointerdown', e => {
+  clickCandidate = hover;
+  setPinned(null);
   setHover(null); // a tooltip must not survive the gesture that moves the plot
   geometryHover = null;
   geometryHoverPoint = null;
@@ -2959,6 +2982,7 @@ canvas.addEventListener('pointerdown', e => {
 });
 canvas.addEventListener('contextmenu', e => e.preventDefault());
 canvas.addEventListener('pointerleave', () => {
+  if (pinned) return;
   lastHoverAt = null;
   geometryHover = null;
   geometryHoverPoint = null;
@@ -3051,10 +3075,17 @@ canvas.addEventListener('pointerup', e => {
   const dragged = grab !== null;
   endPointer(e);
   if (dragged) {
+    clickCandidate = null;
     coalesce = null; // seal the drag as one undo entry
     canvas.style.cursor = 'grab';
     return; // releasing a point never drops a seed
   }
+  if (!dragMoved && !pointers.size && mode === '2d' && e.button === 0 && !e.shiftKey && clickCandidate) {
+    setPinned(clickCandidate);
+    clickCandidate = null;
+    return;
+  }
+  clickCandidate = null;
   // A motionless primary-button click in 2D drops an integral-curve seed on
   // vector fields; right/shift clicks are pan gestures, not seeds.
   if (dragMoved || pointers.size || mode !== '2d' || e.button !== 0 || e.shiftKey) return;
@@ -3073,7 +3104,7 @@ canvas.addEventListener('pointercancel', e => {
 // without another move would leave the last point haloed; clear it unless a
 // drag is in progress (pointer capture keeps those events flowing).
 canvas.addEventListener('pointerleave', () => {
-  if (grab || pointers.size) return;
+  if (grab || pointers.size || pinned) return;
   geometryHover = null;
   setHot(null);
   canvas.style.cursor = '';
@@ -3082,6 +3113,9 @@ canvas.addEventListener('dblclick', () => {
   if (!drops.length) return;
   drops.length = 0;
   requestRender();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && pinned) { setPinned(null); e.preventDefault(); }
 });
 
 canvas.addEventListener('wheel', e => {

@@ -115,6 +115,9 @@ html, body {
   white-space: pre;
   z-index: 20;
 }
+#tooltip.pinned { pointer-events: auto; }
+.tooltip-copy { display: block; margin-top: 5px; padding: 3px 6px; border: 1px solid var(--panel-border); border-radius: 4px; background: transparent; color: var(--text); cursor: pointer; font: 11px ui-sans-serif, system-ui; }
+.tooltip-copy:hover { border-color: var(--accent); color: var(--accent); }
 #tooltip::first-line {
   color: var(--muted);
   font-size: 11px;
