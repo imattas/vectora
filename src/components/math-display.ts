@@ -37,7 +37,12 @@ const atomStart = (text: string, end: number): number => {
   return i + 1;
 };
 
-function appendFormatted(parent: HTMLElement, text: string, fractions: boolean): void {
+function mark(node: HTMLElement, start: number, end: number): HTMLElement {
+  node.dataset.sourceStart = String(start); node.dataset.sourceEnd = String(end);
+  return node;
+}
+
+function appendFormatted(parent: HTMLElement, text: string, fractions: boolean, sourceOffset = 0): void {
   if (fractions) {
     const slash = topLevelSlash(text);
     if (slash >= 0) {
@@ -46,14 +51,18 @@ function appendFormatted(parent: HTMLElement, text: string, fractions: boolean):
       if (text[end] === '(') { const close = matchingParen(text, end); if (close >= 0) end = close + 1; }
       else while (end < text.length && /[A-Za-z0-9_.]/.test(text[end])) end++;
       if (start < slash && end > slash + 1) {
-        appendFormatted(parent, text.slice(0, start), false);
+        appendFormatted(parent, text.slice(0, start), false, sourceOffset);
         const fraction = document.createElement('span'); fraction.className = 'math-fraction';
         const numerator = document.createElement('span'); numerator.className = 'math-numerator';
         const denominator = document.createElement('span'); denominator.className = 'math-denominator';
-        appendFormatted(numerator, text.slice(start, slash).replace(/^\((.*)\)$/, '$1'), false);
-        appendFormatted(denominator, text.slice(slash + 1, end).replace(/^\((.*)\)$/, '$1'), false);
+        const numeratorText = text.slice(start, slash).replace(/^\((.*)\)$/, '$1');
+        const denominatorText = text.slice(slash + 1, end).replace(/^\((.*)\)$/, '$1');
+        mark(numerator, sourceOffset + start, sourceOffset + slash);
+        mark(denominator, sourceOffset + slash + 1, sourceOffset + end);
+        appendFormatted(numerator, numeratorText, false, sourceOffset + start + (text[start] === '(' ? 1 : 0));
+        appendFormatted(denominator, denominatorText, false, sourceOffset + slash + 1 + (text[slash + 1] === '(' ? 1 : 0));
         fraction.append(numerator, denominator); parent.append(fraction);
-        appendFormatted(parent, text.slice(end), true);
+        appendFormatted(parent, text.slice(end), true, sourceOffset + end);
         return;
       }
     }
@@ -65,9 +74,9 @@ function appendFormatted(parent: HTMLElement, text: string, fractions: boolean):
       const close = matchingParen(text, open);
       if (close >= 0) {
         const body = document.createElement('span');
-        body.className = functionName === 'sqrt' ? 'math-root' : 'math-abs';
-        const content = document.createElement('span'); content.className = 'math-radicand';
-        appendFormatted(content, text.slice(open + 1, close), true);
+        body.className = functionName === 'sqrt' ? 'math-root' : 'math-abs'; mark(body, sourceOffset + i, sourceOffset + close + 1);
+        const content = document.createElement('span'); content.className = 'math-radicand'; mark(content, sourceOffset + open + 1, sourceOffset + close);
+        appendFormatted(content, text.slice(open + 1, close), true, sourceOffset + open + 1);
         if (functionName === 'sqrt') { const radical = document.createElement('span'); radical.className = 'math-radical'; radical.textContent = '√'; body.append(radical, content); }
         else { const left = document.createElement('span'); left.textContent = '|'; const right = document.createElement('span'); right.textContent = '|'; body.append(left, content, right); }
         parent.append(body); i = close + 1; continue;
@@ -79,14 +88,16 @@ function appendFormatted(parent: HTMLElement, text: string, fractions: boolean):
       else while (end < text.length && /[A-Za-z0-9_.]/.test(text[end])) end++;
       if (end > i + 1) {
         const exponent = document.createElement('sup');
-        appendFormatted(exponent, text.slice(i + 1, end).replace(/^\((.*)\)$/, '$1'), false);
+        mark(exponent, sourceOffset + i + 1, sourceOffset + end);
+        appendFormatted(exponent, text.slice(i + 1, end).replace(/^\((.*)\)$/, '$1'), false, sourceOffset + i + 1 + (text[i + 1] === '(' ? 1 : 0));
         parent.append(exponent); i = end; continue;
       }
     }
     let end = i + 1;
     while (end < text.length && text[end] !== '/' && text[end] !== '^'
       && !text.startsWith('sqrt(', end) && !text.startsWith('abs(', end)) end++;
-    parent.append(document.createTextNode(formatPlainGlyphs(text.slice(i, end))));
+    const chunk = document.createElement('span'); mark(chunk, sourceOffset + i, sourceOffset + end);
+    chunk.textContent = formatPlainGlyphs(text.slice(i, end)); parent.append(chunk);
     i = end;
   }
 }

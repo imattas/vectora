@@ -2185,9 +2185,18 @@ listEl.addEventListener('input', e => {
 // The preview is intentionally non-editable. Reveal the canonical source at
 // pointer time so the browser can place a caret before selectionchange fires.
 listEl.addEventListener('pointerdown', e => {
-  const line = e.target instanceof HTMLElement ? e.target.closest('.eq-line') : null;
+  const line = e.target instanceof HTMLElement ? e.target.closest('.eq-line') as HTMLElement | null : null;
   if (!line) return;
   line.classList.add('focused');
+  const target = e.target instanceof HTMLElement ? e.target.closest('[data-source-start]') as HTMLElement | null : null;
+  if (target && target.dataset.sourceStart) {
+    const row = lineEls().indexOf(line);
+    const offset = Number(target.dataset.sourceStart);
+    if (row >= 0 && Number.isFinite(offset)) {
+      e.preventDefault();
+      setCaret(row, offset);
+    }
+  }
 });
 
 // Enter splits the line in state space rather than letting the browser pick a
