@@ -1781,6 +1781,11 @@ function makeColorUI(eq: Equation): HTMLElement {
   const colors = theme.palette.map(cssColor);
   const picker = makeColorPicker(colors, eq.colorIndex, index => {
     pushUndo(`color:${eq.id}`); eq.colorIndex = index; reconcile(); requestRender();
+  }, () => {
+    // The gutter is a pseudo-element rather than a focusable control. Return
+    // focus to the editor host after Escape/selection so keyboard users do not
+    // remain focused on the now-hidden picker.
+    listEl.focus();
   });
   picker.classList.add('eq-color-widget', 'eq-widget');
   return picker;
@@ -2323,7 +2328,9 @@ function gutterAct(eq: Equation) {
     return;
   }
   eq.colorUI ??= makeColorUI(eq);
-  eq.colorUI.hidden = !eq.colorUI.hidden;
+  const opening = eq.colorUI.hidden;
+  eq.colorUI.hidden = !opening;
+  if (opening) eq.colorUI.querySelector<HTMLButtonElement>('.color-swatch')?.focus();
 }
 
 // Mouse acts on press. Touch waits for the click so scrolling the sidebar

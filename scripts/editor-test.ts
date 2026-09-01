@@ -53,25 +53,38 @@ async function load(page: Page, rows: string[]) {
 
 /** Put the caret in a line at a character offset (mirrors user clicking). */
 async function caretTo(page: Page, line: number, offset: number) {
-  await page.evaluate(
-    ({ line, offset }) => {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await page.evaluate(
+      ({ line, offset }) => {
+        const el = [...document.querySelectorAll('.eq-line')][line] as HTMLElement;
+        el.focus();
+        // The focused row keeps canonical text in `.math-source`; the visual
+        // preview is a sibling and may contain multiple formatted text nodes.
+        // Select the source text node so offsets are character offsets, not
+        // child-element offsets.
+        const source = el.querySelector<HTMLElement>('.math-source');
+        const node = source?.firstChild ?? el.firstChild ?? el;
+        const r = document.createRange();
+        r.setStart(node, Math.min(offset, node.textContent?.length ?? 0));
+        r.collapse(true);
+        const sel = getSelection()!;
+        sel.removeAllRanges();
+        sel.addRange(r);
+      },
+      { line, offset },
+    );
+    const ready = await page.evaluate(({ line, offset }) => {
       const el = [...document.querySelectorAll('.eq-line')][line] as HTMLElement;
-      el.focus();
-      // The focused row keeps canonical text in `.math-source`; the visual
-      // preview is a sibling and may contain multiple formatted text nodes.
-      // Select the source text node so offsets are character offsets, not
-      // child-element offsets.
-      const source = el.querySelector<HTMLElement>('.math-source');
-      const node = source?.firstChild ?? el.firstChild ?? el;
-      const r = document.createRange();
-      r.setStart(node, Math.min(offset, node.textContent?.length ?? 0));
-      r.collapse(true);
-      const sel = getSelection()!;
-      sel.removeAllRanges();
-      sel.addRange(r);
-    },
-    { line, offset },
-  );
+      const sel = getSelection();
+      const editor = document.querySelector('#equations');
+      return (document.activeElement === el || document.activeElement === editor || el.contains(document.activeElement)) && !!sel?.isCollapsed
+        && sel.focusNode?.parentElement?.closest('.math-source') === el.querySelector('.math-source')
+        && sel.focusOffset === offset;
+    }, { line, offset });
+    if (ready) return;
+    await page.waitForTimeout(10);
+  }
+  throw new Error(`could not establish caret at line ${line}, offset ${offset}`);
 }
 
 const viteScript = fileURLToPath(new URL('../node_modules/vite/bin/vite.js', import.meta.url));
@@ -272,6 +285,23 @@ await scenario('comment rows collapse their group', async () => {
   await gutterClick(page, 0);
   const expanded = await visibleRows(page);
   check('second gutter click expands it again', expanded.length === 5, `visible=${JSON.stringify(expanded)}`);
+});
+
+await scenario('color picker supports keyboard navigation and focus return', async () => {
+  await load(page, ['y=x']);
+  await gutterClick(page, 0);
+  const opened = await page.evaluate(() => ({
+    hidden: document.querySelector<HTMLElement>('.color-picker')?.hidden,
+    active: document.activeElement?.className,
+  }));
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('Escape');
+  const closed = await page.evaluate(() => ({
+    hidden: document.querySelector<HTMLElement>('.color-picker')?.hidden,
+    activeEditor: document.activeElement?.id === 'equations',
+  }));
+  check('color picker opens on a focused swatch', opened.hidden === false && opened.active === 'color-swatch', JSON.stringify(opened));
+  check('color picker Escape closes and returns focus', closed.hidden === true && closed.activeEditor, JSON.stringify(closed));
 });
 
 await scenario('collapsed rows still copy and share', async () => {
