@@ -296,6 +296,14 @@ html, body {
 /* Rows inside a collapsed group; they stay in the DOM (copy/undo/share). */
 #equations .eq-hidden { display: none; }
 .eq-line.focused { background: var(--eq-focus); }
+.math-source { display: none; white-space: pre-wrap; }
+.eq-line.focused .math-source { display: inline; }
+.math-preview { display: inline; white-space: pre-wrap; pointer-events: none; user-select: none; }
+.eq-line.focused .math-preview { display: none; }
+.math-fraction { display: inline-flex; flex-direction: column; vertical-align: middle; margin: 0 2px; text-align: center; line-height: 1.05; }
+.math-numerator { padding: 0 3px 1px; border-bottom: 1px solid currentColor; }
+.math-denominator { padding: 1px 3px 0; }
+.math-preview sup { font-size: .72em; line-height: 0; vertical-align: .55em; }
 .eq-line.geometry-dependent { box-shadow: inset 2px 0 0 var(--accent); background: var(--eq-focus); }
 .eq-line.hidden-expression { opacity: .48; }
 .eq-color-widget { position: relative; display: block; margin-left: 28px; height: 0; vertical-align: top; }

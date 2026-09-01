@@ -78,6 +78,7 @@ import { makeButton } from '../components/button/button.ts';
 import { initSidebar } from '../components/sidebar/sidebar.ts';
 import { initOnboarding } from '../components/onboarding.ts';
 import { makeSymbolKeyboard } from '../components/symbol-keyboard.ts';
+import { renderMathPreview } from '../components/math-display.ts';
 
 interface Equation {
   id: number;
@@ -380,7 +381,7 @@ function writebackViewport() {
   else appliedCameraText = text;
   eq.text = text;
   const line = lineEls()[equations.indexOf(eq)];
-  if (line) line.textContent = text;
+  if (line) setLineSource(line, text);
   recompileAll();
   reconcile();
   saveUrl();
@@ -1415,11 +1416,18 @@ const lineEls = (): HTMLElement[] =>
 const lineText = (line: HTMLElement): string => {
   const copy = line.cloneNode(true) as HTMLElement;
   copy.querySelectorAll('.eq-widget').forEach(widget => widget.remove());
+  copy.querySelectorAll('.math-preview').forEach(preview => preview.remove());
   // Row actions are controls, not equation content. The menu may be portaled
   // to <body>, but its trigger remains inside the editable line.
   copy.querySelectorAll('.row-options-wrap').forEach(options => options.remove());
   return (copy.textContent ?? '').replace(/ /g, ' ');
 };
+
+function setLineSource(line: HTMLElement, text: string): void {
+  const source = line.querySelector<HTMLElement>('.math-source');
+  if (source) source.textContent = text;
+  else line.textContent = text;
+}
 
 // --- caret mapped to (line index, character offset) ---
 
@@ -1571,7 +1579,7 @@ function makeSlider(eq: Equation): SliderUI {
     const lhs = kind === 'init' ? `${eq.def!.name}(0)` : eq.def!.name;
     eq.text = `${lhs} = ${fmtNum(Number(range.value))}`;
     const line = lineEls()[equations.indexOf(eq)];
-    if (line) line.textContent = eq.text;
+    if (line) setLineSource(line, eq.text);
     recompileAll();
     reconcile();
     saveUrl();
@@ -1898,8 +1906,10 @@ function renderAll() {
     const line = document.createElement('div');
     line.className = 'eq-line';
     line.dataset.id = String(eq.id);
-    if (eq.text) line.textContent = eq.text;
-    else line.append(document.createElement('br'));
+    const source = document.createElement('span'); source.className = 'math-source'; source.textContent = eq.text;
+    const preview = renderMathPreview(eq.text); preview.dataset.source = eq.text;
+    line.append(source, preview);
+    if (!eq.text) line.append(document.createElement('br'));
     listEl.append(line);
   }
   reconcile();
@@ -1943,7 +1953,12 @@ function syncFromDOM() {
     let eq = id && !seen.has(id) ? byId.get(id) : undefined;
     if (!eq) {
       eq = { id: nextId++, text: '', colorIndex: (nextId - 2) % theme.palette.length };
-      line.dataset.id = String(eq.id);
+    line.dataset.id = String(eq.id);
+    const preview = line.querySelector<HTMLElement>('.math-preview');
+    if (preview && preview.dataset.source !== eq.text) {
+      const nextPreview = renderMathPreview(eq.text); nextPreview.dataset.source = eq.text;
+      preview.replaceWith(nextPreview);
+    }
     }
     seen.add(String(eq.id));
     eq.text = lineText(line);
@@ -2115,6 +2130,14 @@ listEl.addEventListener('input', e => {
   // the previous document while the user is still looking at the new one.
   saveUrl(true);
   requestRender();
+});
+
+// The preview is intentionally non-editable. Reveal the canonical source at
+// pointer time so the browser can place a caret before selectionchange fires.
+listEl.addEventListener('pointerdown', e => {
+  const line = e.target instanceof HTMLElement ? e.target.closest('.eq-line') : null;
+  if (!line) return;
+  line.classList.add('focused');
 });
 
 // Enter splits the line in state space rather than letting the browser pick a
@@ -2512,7 +2535,7 @@ function syncLineTexts() {
   const lines = lineEls();
   equations.forEach((eq, i) => {
     const line = lines[i];
-    if (line && lineText(line) !== eq.text) line.textContent = eq.text;
+    if (line && lineText(line) !== eq.text) setLineSource(line, eq.text);
   });
 }
 
