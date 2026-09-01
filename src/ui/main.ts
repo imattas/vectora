@@ -1434,6 +1434,7 @@ autocomplete.className = 'function-autocomplete'; autocomplete.hidden = true;
 autocomplete.setAttribute('role', 'listbox'); autocomplete.setAttribute('aria-label', 'Function suggestions');
 document.body.append(autocomplete);
 let autocompleteState: { line: number; start: number; end: number } | null = null;
+let autocompleteIndex = 0;
 
 function hideAutocomplete() { autocomplete.hidden = true; autocomplete.replaceChildren(); autocompleteState = null; }
 function showAutocomplete() {
@@ -1442,6 +1443,7 @@ function showAutocomplete() {
   const matches = getFunctionCompletions(prefix);
   if (!matches.length) { hideAutocomplete(); return; }
   autocompleteState = { line: pos.line, start: pos.offset - prefix.length, end: pos.offset };
+  autocompleteIndex = 0;
   autocomplete.replaceChildren();
   for (const name of matches) {
     const item = document.createElement('button'); item.type = 'button'; item.className = 'function-suggestion'; item.textContent = `${name}(…`;
@@ -1456,6 +1458,7 @@ function showAutocomplete() {
     });
     autocomplete.append(item);
   }
+  autocomplete.querySelector<HTMLButtonElement>('.function-suggestion')?.setAttribute('aria-selected', 'true');
   const rect = line.getBoundingClientRect(); autocomplete.style.left = `${rect.left + 28}px`; autocomplete.style.top = `${rect.bottom + 2}px`; autocomplete.hidden = false;
 }
 
@@ -2192,6 +2195,15 @@ listEl.addEventListener('pointerdown', e => {
 listEl.addEventListener('keydown', e => {
   if (fromWidget(e)) return; // let bound inputs handle their own keys natively
   if (e.key === 'Escape' && !autocomplete.hidden) { hideAutocomplete(); e.preventDefault(); return; }
+  if (!autocomplete.hidden && autocompleteState && (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Tab' || e.key === 'Enter')) {
+    const suggestions = [...autocomplete.querySelectorAll<HTMLButtonElement>('.function-suggestion')];
+    if (suggestions.length && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+      autocompleteIndex = (autocompleteIndex + (e.key === 'ArrowDown' ? 1 : suggestions.length - 1)) % suggestions.length;
+      suggestions.forEach((button, index) => button.setAttribute('aria-selected', String(index === autocompleteIndex)));
+      e.preventDefault(); return;
+    }
+    if (suggestions.length && (e.key === 'Tab' || e.key === 'Enter')) { e.preventDefault(); suggestions[autocompleteIndex].click(); return; }
+  }
   const mod = e.metaKey || e.ctrlKey;
   if (mod && !e.altKey && e.key.toLowerCase() === 'z') {
     e.preventDefault();
