@@ -27,7 +27,9 @@ const MARGIN = 12;
 /** Arrow-key resize step (px). */
 const KEY_STEP = 16;
 
-export function initPanelResize(panel: HTMLElement, handle: HTMLElement): void {
+export interface PanelResizeBinding { destroy(): void }
+
+export function initPanelResize(panel: HTMLElement, handle: HTMLElement): PanelResizeBinding {
   const maxWidth = () => document.documentElement.clientWidth - 2 * MARGIN;
   const clampWidth = (w: number) => Math.round(Math.min(Math.max(w, MIN_WIDTH), maxWidth()));
 
@@ -69,32 +71,29 @@ export function initPanelResize(panel: HTMLElement, handle: HTMLElement): void {
 
   let drag: { id: number; x0: number; w0: number } | null = null;
 
-  handle.addEventListener('pointerdown', e => {
+  const onPointerDown = (e: PointerEvent) => {
     if (drag || e.button !== 0) return;
     e.preventDefault(); // a drag, not a text-selection start
     drag = { id: e.pointerId, x0: e.clientX, w0: panel.getBoundingClientRect().width };
     try {
       handle.setPointerCapture(e.pointerId);
     } catch {} // synthetic events have no active pointer to capture
-  });
+  };
 
-  handle.addEventListener('pointermove', e => {
+  const onPointerMove = (e: PointerEvent) => {
     if (!drag || e.pointerId !== drag.id) return;
     const dx = e.clientX - drag.x0;
     setWidth(drag.w0 + dx);
-  });
+  };
 
   const end = (e: PointerEvent) => {
     if (!drag || e.pointerId !== drag.id) return;
     drag = null;
     save();
   };
-  handle.addEventListener('pointerup', end);
-  handle.addEventListener('pointercancel', end);
+  const onDoubleClick = () => reset();
 
-  handle.addEventListener('dblclick', reset);
-
-  handle.addEventListener('keydown', e => {
+  const onKeyDown = (e: KeyboardEvent) => {
     const edgeStep = e.key === 'ArrowRight' ? KEY_STEP : e.key === 'ArrowLeft' ? -KEY_STEP : 0;
     if (edgeStep) {
       setWidth(panel.getBoundingClientRect().width + edgeStep);
@@ -111,11 +110,32 @@ export function initPanelResize(panel: HTMLElement, handle: HTMLElement): void {
       return;
     }
     e.preventDefault();
-  });
+  };
 
   // The max (and the clamped current width) move with the viewport.
-  window.addEventListener('resize', syncAria);
+  const onResize = () => syncAria();
+  window.addEventListener('resize', onResize);
 
   // Keep panel-swipe.ts from treating a resize touch as a panel drag.
-  handle.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
+  const onTouchStart = (e: TouchEvent) => e.stopPropagation();
+  handle.addEventListener('pointerdown', onPointerDown);
+  handle.addEventListener('pointermove', onPointerMove);
+  handle.addEventListener('pointerup', end);
+  handle.addEventListener('pointercancel', end);
+  handle.addEventListener('dblclick', onDoubleClick);
+  handle.addEventListener('keydown', onKeyDown);
+  handle.addEventListener('touchstart', onTouchStart, { passive: true });
+  return {
+    destroy() {
+      drag = null;
+      handle.removeEventListener('pointerdown', onPointerDown);
+      handle.removeEventListener('pointermove', onPointerMove);
+      handle.removeEventListener('pointerup', end);
+      handle.removeEventListener('pointercancel', end);
+      handle.removeEventListener('dblclick', onDoubleClick);
+      handle.removeEventListener('keydown', onKeyDown);
+      handle.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('resize', onResize);
+    },
+  };
 }
