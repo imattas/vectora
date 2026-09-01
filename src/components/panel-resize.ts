@@ -55,6 +55,10 @@ export function initPanelResize(panel: HTMLElement, handle: HTMLElement): PanelR
   /** Back to the stylesheet default, forgetting the stored width. */
   const reset = () => {
     panel.style.width = '';
+    // `syncAria()` mirrors the measured width into the root variable. Clear
+    // that override too, otherwise the stylesheet default can never win after
+    // a keyboard/drag resize.
+    document.documentElement.style.removeProperty('--sidebar-width');
     try {
       localStorage.removeItem(WIDTH_KEY);
     } catch {}

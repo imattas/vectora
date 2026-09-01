@@ -381,6 +381,24 @@ await scenario('mobile sheet closes with Escape and restores focus', async () =>
   await page.setViewportSize({ width: 1000, height: 700 });
 });
 
+await scenario('panel resize splitter supports keyboard bounds and reset', async () => {
+  await page.setViewportSize({ width: 1000, height: 700 });
+  await page.goto(ORIGIN + '/#y=x');
+  await page.waitForSelector('#panel-resize');
+  await page.evaluate(() => localStorage.removeItem('eq-panel-width'));
+  await page.reload();
+  const handle = page.locator('#panel-resize');
+  const initial = await handle.getAttribute('aria-valuenow');
+  await handle.focus();
+  await page.keyboard.press('Home');
+  const minimum = await handle.getAttribute('aria-valuenow');
+  await page.keyboard.press('End');
+  const maximum = await handle.getAttribute('aria-valuenow');
+  await page.keyboard.press('Enter');
+  const reset = await handle.getAttribute('aria-valuenow');
+  check('panel splitter exposes bounds and reset behavior', initial !== null && minimum === '220' && Number(maximum) > 220 && reset === initial, JSON.stringify({ initial, minimum, maximum, reset }));
+});
+
 await browser.close();
 server.kill();
 
