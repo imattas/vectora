@@ -535,7 +535,7 @@ html, body {
 .ex-item:hover code { color: var(--ex-code-hover); }
 
 @media (max-width: 640px) {
-  #mobile-panel-toggle { display: block; position: fixed; z-index: 12; left: 50%; bottom: calc(10px + env(safe-area-inset-bottom)); transform: translateX(-50%); padding: 8px 13px; border: 1px solid var(--panel-border); border-radius: 999px; background: var(--panel-bg); color: var(--text); box-shadow: 0 4px 16px var(--panel-shadow); font: 12px ui-sans-serif, system-ui; }
+  #mobile-panel-toggle { display: block; position: fixed; z-index: 20; top: calc(8px + env(safe-area-inset-top)); right: 8px; padding: 7px 10px; border: 1px solid var(--panel-border); border-radius: 999px; background: var(--panel-bg); color: var(--text); box-shadow: 0 4px 16px var(--panel-shadow); font: 12px ui-sans-serif, system-ui; }
   #panel {
     width: min(var(--sidebar-width), calc(100% - 48px));
     transition: transform .2s ease;
