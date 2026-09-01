@@ -18,7 +18,7 @@ export function makeColorPicker(
     setActive(index); onSelect(index); marker.style.transform = `rotate(${hue}deg) translateY(-${rect.width * .38}px)`;
     if (close) closePicker();
   };
-  wheel.addEventListener('pointerdown', event => { wheel.setPointerCapture(event.pointerId); choose(event); event.preventDefault(); });
+  wheel.addEventListener('pointerdown', event => { try { wheel.setPointerCapture(event.pointerId); } catch {} choose(event); event.preventDefault(); });
   wheel.addEventListener('pointermove', event => { if (wheel.hasPointerCapture(event.pointerId)) choose(event); });
   wheel.addEventListener('pointerup', event => { if (wheel.hasPointerCapture(event.pointerId)) { choose(event, true); wheel.releasePointerCapture(event.pointerId); } });
   wheel.addEventListener('pointercancel', event => { if (wheel.hasPointerCapture(event.pointerId)) wheel.releasePointerCapture(event.pointerId); });

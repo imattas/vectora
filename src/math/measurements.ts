@@ -10,7 +10,8 @@ export interface AngleMeasurement {
   end: Point2;
 }
 
-const valid = (...ps: Point2[]): boolean => ps.every(finitePoint);
+const valid = (...ps: Point2[]): boolean => ps.every(point =>
+  point !== null && typeof point === 'object' && finitePoint(point));
 
 export function distance(a: Point2, b: Point2): MeasurementResult<number> {
   if (!valid(a, b)) return { ok: false, reason: 'Distance has a non-finite endpoint.' };
