@@ -3284,6 +3284,14 @@ resize();
 renderAll();
 
 const addActions = document.getElementById('sidebar-actions');
+const mobilePanelToggle = document.getElementById('mobile-panel-toggle');
+const panel = document.getElementById('panel');
+mobilePanelToggle?.addEventListener('click', () => {
+  if (!panel) return;
+  const collapsed = panel.classList.toggle('mobile-collapsed');
+  mobilePanelToggle.setAttribute('aria-expanded', String(!collapsed));
+  mobilePanelToggle.textContent = collapsed ? '☰ Expressions' : '× Close panel';
+});
 function clearWorkspace() {
   pushUndo('clear'); equations.length = 0; addEquation(''); recompileAll(); renderAll(); saveUrl(); requestRender();
 }
