@@ -20,7 +20,7 @@ workspace backups, and exports.
 | Mobile shell | Desktop sidebar layout reduced the graph viewport on narrow screens. | Added bottom-sheet presentation, swipe collapse/expand, safe-area spacing, and a non-overlapping toggle. | Fixed; manually verified at 390×844. |
 | Header controls | Help, settings, theme, and onboarding controls could overlap. | Consolidated responsive header spacing and accessible labels. | Fixed. |
 | Color picker | Mouse-only color selection left keyboard users without swatch navigation or reliable dismissal/focus return. | Added Arrow/Home/End navigation, focused swatch opening, Escape dismissal, and focus return to the editor host. | Fixed; covered by browser smoke checks. |
-| Help theme | The standalone Help page ignored the calculator's saved theme and always used light colors. | Added the same `eq-theme` preference, OS fallback, theme toggle, dark variables, and matching logo asset. | Fixed; manually verified in both modes. |
+| Help theme | The standalone Help page ignored the calculator's saved theme and always used light colors. | Added the same `eq-theme` preference, OS fallback, theme toggle, dark variables, matching logo asset, and cross-tab storage synchronization. | Fixed; manually verified in both modes. |
 | WebGL diagnostics | Shader compile/link failures were only logged to the console, leaving users with a blank graph and no actionable feedback. | Added one-time error reporting from cached and initial 3D program compilation to the visible render status region while retaining detailed console logs. | Fixed. |
 
 ## Rendering and graph behavior
