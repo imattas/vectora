@@ -42,6 +42,8 @@ workspace backups, and exports.
   preserving canonical source text.
 - `cbrt(x)` evaluates real cube roots for negative inputs, differentiates
   symbolically, compiles to WebGL, and displays as `³√x`.
+- `nroot(value, index)` supports arbitrary nonzero integer indexes, rejects
+  even roots of negative values, and is available from the calculator keyboard.
 - `perpendicularBisector(A, B)` and
   `tangent(circle(O, r), P)` validate degenerate or off-circle inputs and
   produce line overlays.
