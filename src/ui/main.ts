@@ -42,6 +42,7 @@ import { solveSystem } from '../math/solve.ts';
 import { solveLinearSystem, solveScalar } from '../math/formula.ts';
 import { axisSpecialPoint, type SpecialPoint, polylineSpecialPoints, specialPoints } from '../math/special.ts';
 import { findCurveIntersections } from '../math/point-of-interest.ts';
+import { sampleImplicitContours } from '../math/svg-sampling.ts';
 import { ANALYSIS_ONLY_FORMS, analyzeGeometry, type GeometryAnalysis } from '../math/geometry-analysis.ts';
 import { drawGeometryOverlay } from '../components/geometry/overlay.ts';
 import { geometryDistance } from '../components/geometry/hit-testing.ts';
@@ -3337,29 +3338,22 @@ function saveSvg() {
     const tag = line.closed ? 'polygon' : 'polyline';
     return `<${tag} points="${points.join(' ')}" fill="${line.fill ?? 'none'}" stroke="${escape(line.color)}" stroke-width="${line.width ?? 1.5}" stroke-linejoin="round" stroke-linecap="round"/>`;
   }).join('');
-  const vectorCurves = equations.filter(eq => !eq.hidden && !eq.error && eq.cls?.plot.type === 'implicit2d' && eq.parsed).map(eq => {
-    const parsed = eq.parsed!;
-    const residual = parsed.kind === 'eq' ? { kind: 'bin', op: '-', a: parsed.l, b: parsed.r } as Expr : parsed;
-    const pts: string[] = [];
-    const count = 640;
-    for (let i = 0; i < count; i++) {
-      const x = view.cx + (i / (count - 1) - 0.5) * width * view.upp * (window.devicePixelRatio || 1);
-      let y = view.cy;
-      let valid = false;
-      for (let step = 0; step < 12; step++) {
-        try {
-          const h = Math.max(view.upp * 0.5, 1e-7);
-          const f = evaluate(residual, { ...constEnv, x, y });
-          const fy = (evaluate(residual, { ...constEnv, x, y: y + h }) - f) / h;
-          if (!Number.isFinite(f) || !Number.isFinite(fy) || Math.abs(fy) < 1e-12) break;
-          y -= f / fy;
-          if (Math.abs(f) < Math.max(view.upp, 1e-6)) { valid = Number.isFinite(y); break; }
-        } catch { break; }
-      }
-      if (valid) pts.push(`${sx(x)},${sy(y)}`);
-    }
-    return pts.length > 1 ? `<polyline points="${pts.join(' ')}" fill="none" stroke="${escape(cssColor(theme.palette[eq.colorIndex]))}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>` : '';
-  }).join('');
+  const dpr = window.devicePixelRatio || 1;
+  const contourBounds = {
+    xlo: view.cx - width * view.upp * dpr / 2,
+    xhi: view.cx + width * view.upp * dpr / 2,
+    ylo: view.cy - height * view.upp * dpr / 2,
+    yhi: view.cy + height * view.upp * dpr / 2,
+  };
+  const vectorCurves = equations
+    .filter(eq => !eq.hidden && !eq.error && eq.cls?.plot.type === 'implicit2d' && eq.parsed)
+    .flatMap(eq => sampleImplicitContours(eq.parsed!, contourBounds).map(points => {
+      const coords = points.map(([x, y]) => `${sx(x)},${sy(y)}`).join(' ');
+      return points.length > 1
+        ? `<polyline points="${coords}" fill="none" stroke="${escape(cssColor(theme.palette[eq.colorIndex]))}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`
+        : '';
+    }))
+    .join('');
   const geometryColor = (object: GeometryObject) => {
     const row = [...geometryAnalysis.byRow.entries()].find(([, values]) => values.includes(object))?.[0] ?? 0;
     return cssColor(theme.palette[equations[row]?.colorIndex ?? 0]);

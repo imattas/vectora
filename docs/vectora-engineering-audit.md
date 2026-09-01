@@ -27,7 +27,7 @@ workspace backups, and exports.
 | Grid setting | Disabling the grid returned from the renderer before plot layers were drawn. | Grid drawing is now conditional; plot layers always continue. | Fixed. |
 | Axes | Grid and axes were coupled. | Added independent persisted axis visibility and renderer support. | Fixed. |
 | Theme | Graph and logo colors needed to follow light/dark theme state. | Theme synchronization covers graph, controls, logo assets, and labels. | Fixed. |
-| SVG export | WebGL completion and overlay geometry were not guaranteed in the captured output. | Call `gl.finish()`, preserve sampled polylines/points as SVG primitives, and retain a raster fallback for shader-only curves. | Improved; shader curves remain raster-backed because WebGL shader source is not directly SVG geometry. |
+| SVG export | WebGL completion and overlay geometry were not guaranteed in the captured output. | Call `gl.finish()`, preserve sampled polylines/points as SVG primitives, and sample multiple implicit branches at export time, retaining a raster fallback for unsupported shader-only layers. | Improved; implicit curves now export as branch-separated vector polylines, with raster fallback retained for unsupported layers. |
 | Fast measurement updates | Variable-height readouts could cause layout movement. | Fixed-height measurement region with internal scrolling and stable text layout. | Fixed. |
 | Curves and shapes | Several geometry forms were parsed but not reliably represented by the overlay analyzer. | Added normalized circle arguments, polygon area/perimeter readouts, tangents, and perpendicular bisectors. | Fixed for supported forms. |
 | Angle annotations | Crossing line equations did not automatically show angle arches; units were inconsistent. | Added automatic crossing-angle derivation and synchronized degrees/radians labels in panels and arches. | Fixed. |
@@ -89,8 +89,9 @@ width.
 1. The editor still stores one canonical string per row; the visual math tree
    is semantic for navigation but is not yet a fully nested native math-field
    with independent numerator, denominator, exponent, and radicand DOM slots.
-2. Shader-rendered implicit curves in SVG require a raster fallback. Overlay
-   curves, points, and geometry are emitted as vector primitives.
+2. Unsupported shader-rendered layers in SVG require a raster fallback. The
+   common 2D implicit-curve path, overlays, points, and geometry are emitted as
+   vector primitives; export-time Newton sampling remains an approximation.
 3. Numerical curve intersections can still miss singular, tangent, or very
    closely spaced roots outside the bounded seed/evaluation budget; exact
    coverage would require a more expensive adaptive subdivision pass.
