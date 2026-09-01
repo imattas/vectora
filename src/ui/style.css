@@ -556,6 +556,9 @@ html, body {
 .add-menu-trigger { width: 32px; height: 28px; border: 1px solid var(--panel-border); border-radius: 5px; background: transparent; color: var(--text); font-size: 18px; cursor: pointer; }
 .add-menu-trigger:hover { border-color: var(--accent); background: var(--eq-focus); }
 .sidebar-action:hover { color: var(--text); border-color: var(--accent); background: var(--eq-focus); }
+.workspace-recent { display: inline-flex; align-items: center; gap: 4px; margin: 4px 0 0 5px; max-width: calc(100% - 10px); }
+.workspace-select { min-height: 28px; max-width: 170px; border: 1px solid var(--panel-border); border-radius: 5px; background: var(--panel-bg); color: var(--muted); font: 11px ui-sans-serif, system-ui; }
+.workspace-delete { margin-left: 0; }
 .add-menu-popover { top: 32px; left: 0; min-width: 150px; }
 .symbol-keyboard-wrap { position: relative; display: block; }
 .symbol-keyboard-trigger { width: 100%; margin: 0; padding: 0 8px; font-size: 15px; }

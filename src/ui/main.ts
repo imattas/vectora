@@ -81,7 +81,7 @@ import { initOnboarding } from '../components/onboarding.ts';
 import { makeSymbolKeyboard } from '../components/symbol-keyboard.ts';
 import { renderMathPreview } from '../components/math-display.ts';
 import { DEFAULT_GRAPH_SETTINGS, loadGraphSettings, saveGraphSettings, type GraphSettings } from '../components/graph-settings.ts';
-import { exportWorkspaces, importWorkspaces, listWorkspaces, saveWorkspace } from '../state/workspaces.ts';
+import { deleteWorkspace, exportWorkspaces, importWorkspaces, listWorkspaces, loadWorkspace, saveWorkspace } from '../state/workspaces.ts';
 import { getFunctionCompletions } from '../components/function-autocomplete.ts';
 
 interface Equation {
@@ -3336,7 +3336,7 @@ if (addActions) {
   addActions.append(makeButton('Clear', 'Clear all expressions', clearWorkspace, 'sidebar-action'));
   addActions.append(makeButton('Save', 'Save a named local workspace', () => {
     const name = window.prompt('Workspace name', `Graph ${listWorkspaces().length + 1}`)?.trim();
-    if (name) saveWorkspace(name, equations.map(eq => eq.text), { cx: view.cx, cy: view.cy, upp: view.upp });
+    if (name) { saveWorkspace(name, equations.map(eq => eq.text), { cx: view.cx, cy: view.cy, upp: view.upp }); refreshRecent?.(); }
   }, 'sidebar-action'));
   addActions.append(makeButton('Open', 'Open a saved local workspace', () => {
     const items = listWorkspaces(); if (!items.length) { window.alert('No saved workspaces yet.'); return; }
@@ -3345,6 +3345,25 @@ if (addActions) {
     equations.length = 0; item.equations.forEach(text => addEquation(text)); if (item.view) Object.assign(view, item.view);
     recompileAll(); renderAll(); saveUrl(); requestRender();
   }, 'sidebar-action'));
+  const recentWrap = document.createElement('span'); recentWrap.className = 'workspace-recent';
+  const recent = document.createElement('select'); recent.className = 'workspace-select'; recent.setAttribute('aria-label', 'Recent workspaces');
+  const refreshRecent = () => {
+    recent.replaceChildren();
+    const items = listWorkspaces();
+    const placeholder = document.createElement('option'); placeholder.value = ''; placeholder.textContent = items.length ? 'Recent workspaces…' : 'No saved workspaces'; recent.append(placeholder);
+    for (const item of items.slice(0, 8)) { const option = document.createElement('option'); option.value = item.id; option.textContent = item.name; recent.append(option); }
+  };
+  recent.addEventListener('change', () => {
+    const item = recent.value ? loadWorkspace(recent.value) : null; if (!item) return;
+    equations.length = 0; item.equations.forEach(text => addEquation(text)); if (item.view) Object.assign(view, item.view);
+    recompileAll(); renderAll(); saveUrl(); requestRender(); recent.value = '';
+  });
+  const removeRecent = makeButton('Delete', 'Delete selected local workspace', () => {
+    const item = recent.value ? loadWorkspace(recent.value) : null; if (!item) return;
+    if (!window.confirm(`Delete workspace “${item.name}”?`)) return;
+    deleteWorkspace(item.id); refreshRecent();
+  }, 'sidebar-action workspace-delete');
+  recentWrap.append(recent, removeRecent); addActions.append(recentWrap); refreshRecent();
   addActions.append(makeButton('Backup', 'Export or import local workspaces', () => {
     const action = window.prompt('Type export or import', 'export')?.toLowerCase();
     if (action === 'export') {
