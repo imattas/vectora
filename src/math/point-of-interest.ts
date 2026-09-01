@@ -37,8 +37,25 @@ export function findCurveIntersections(left: Expr, right: Expr, bounds: Bounds, 
       const ax = (f(x + hx, y) - a) / hx, ay = (f(x, y + hy) - a) / hy;
       const bx = (g(x + hx, y) - b) / hx, by = (g(x, y + hy) - b) / hy;
       const det = ax * by - ay * bx;
-      if (!Number.isFinite(det) || Math.abs(det) < 1e-12) break;
-      const dx = (a * by - ay * b) / det, dy = (ax * b - a * bx) / det;
+      let dx: number, dy: number;
+      if (Number.isFinite(det) && Math.abs(det) >= 1e-12) {
+        dx = (a * by - ay * b) / det;
+        dy = (ax * b - a * bx) / det;
+      } else {
+        // Tangent intersections have parallel/vanishing constraint
+        // gradients, so the ordinary Newton determinant is singular. A
+        // damped Gauss-Newton step minimizes f² + g² and can converge to
+        // roots without a sign change.
+        const jxx = ax * ax + bx * bx + 1e-10;
+        const jxy = ax * ay + bx * by;
+        const jyy = ay * ay + by * by + 1e-10;
+        const rhsX = ax * a + bx * b, rhsY = ay * a + by * b;
+        const dampDet = jxx * jyy - jxy * jxy;
+        if (!Number.isFinite(dampDet) || Math.abs(dampDet) < 1e-20) break;
+        dx = (jyy * rhsX - jxy * rhsY) / dampDet;
+        dy = (jxx * rhsY - jxy * rhsX) / dampDet;
+      }
+      if (!Number.isFinite(dx) || !Number.isFinite(dy)) break;
       x -= dx; y -= dy;
       if (Math.hypot(dx / spanX, dy / spanY) < 1e-7 && Math.abs(f(x, y)) < 1e-5 && Math.abs(g(x, y)) < 1e-5) { add(x, y); break; }
       if (x < bounds.xlo - spanX || x > bounds.xhi + spanX || y < bounds.ylo - spanY || y > bounds.yhi + spanY) break;
