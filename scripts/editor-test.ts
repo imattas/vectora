@@ -325,6 +325,18 @@ await scenario('complex plots compile through the WebGL renderer', async () => {
   check('complex plots compile through the WebGL renderer', state.canvas > 0 && !/WebGL2 is required|shader error/i.test(state.status), JSON.stringify(state));
 });
 
+await scenario('parametric 3D scenes auto-frame with SVG controls and no workspaces', async () => {
+  await page.goto(ORIGIN + '/#' + encodeURIComponent('(u, v, sin(2pi u))'));
+  await page.waitForTimeout(300);
+  const state = await page.evaluate(() => ({
+    radius: (globalThis as { __eq?: { camera?: { radius: number } } }).__eq?.camera?.radius ?? Infinity,
+    errors: [...document.querySelectorAll('.eq-error')].map(el => el.textContent),
+    workspace: !!document.querySelector('#workspace-menu, .workspace-popover'),
+    svgControls: document.querySelectorAll('#zoom-in svg, #zoom-out svg, #home-view svg, #graph-settings svg, #onboarding-help svg, #theme-toggle svg').length,
+  }));
+  check('parametric 3D scenes auto-frame with SVG controls and no workspaces', state.radius < 6 && state.errors.length === 0 && !state.workspace && state.svgControls === 6, JSON.stringify(state));
+});
+
 await scenario('row action menus expose state and restore focus', async () => {
   await load(page, ['y=x']);
   const trigger = page.locator('.row-options-trigger').first();
@@ -452,18 +464,14 @@ await scenario('panel resize splitter supports keyboard bounds and reset', async
   check('panel splitter exposes bounds and reset behavior', initial !== null && minimum === '220' && Number(maximum) > 220 && reset === initial, JSON.stringify({ initial, minimum, maximum, reset }));
 });
 
-await scenario('workspace controls are removed and the editor uses the technical type scale', async () => {
+await scenario('the editor uses the technical type scale', async () => {
   await page.setViewportSize({ width: 1000, height: 700 });
   await page.goto(ORIGIN + '/#y=x');
   await page.waitForSelector('#sidebar-actions');
   const state = await page.evaluate(() => ({
-    workspaceControls: [...document.querySelectorAll('#sidebar-actions button, #sidebar-actions select')]
-      .map(el => el.textContent?.trim() || el.getAttribute('aria-label') || '')
-      .filter(label => /^(save|open|backup)$/i.test(label) || /workspace/i.test(label)),
     editorFont: getComputedStyle(document.querySelector('#equations')!).fontFamily,
     headerFont: getComputedStyle(document.querySelector('#panel-header .brand')!).fontFamily,
   }));
-  check('workspace controls are absent from the sidebar toolbar', state.workspaceControls.length === 0, JSON.stringify(state));
   check('editor uses the deliberate technical font stack', /Inter/i.test(state.editorFont) && /Inter/i.test(state.headerFont), JSON.stringify(state));
 });
 
@@ -483,32 +491,12 @@ await scenario('add menu supports keyboard navigation and exposes its relationsh
   await page.keyboard.press('Escape');
 });
 
-await scenario('workspace menu saves and restores a named graph', async () => {
-  await page.evaluate(() => localStorage.setItem('vectora-workspaces-v1', JSON.stringify([{ id: 'test-workspace', name: 'Line workspace', updatedAt: Date.now(), equations: ['y = x'], settings: { grid: true, axes: true, labels: true, points: true, snap: false, angleUnit: 'degrees' } }])));
-  await page.goto(ORIGIN + '/#y%20%3D%20x');
-  await page.waitForSelector('#workspace-menu');
-  await page.locator('#workspace-menu').evaluate((element) => (element as HTMLButtonElement).click());
-  await page.waitForSelector('.workspace-open');
-  const saved = await page.locator('.workspace-open').first().innerText();
-  const saveAvailable = await page.getByRole('button', { name: 'Save current' }).count();
-  await page.goto(ORIGIN + '/#y%20%3D%20x%5E2');
-  await page.locator('#workspace-menu').evaluate((element) => (element as HTMLButtonElement).click());
-  await page.waitForSelector('.workspace-open');
-  await page.locator('.workspace-open').first().evaluate((element) => (element as HTMLButtonElement).click());
-  const restored = await rowTexts(page);
-  check('workspace menu opens and restores a named graph', saved === 'Line workspace' && saveAvailable === 1 && restored.some(row => row?.includes('y = x')), JSON.stringify({ saved, saveAvailable, restored }));
-});
-
 await scenario('header popovers do not overlap and close with Escape', async () => {
   await page.goto(ORIGIN + '/#y%3Dx');
-  await page.locator('#workspace-menu').click();
-  const workspaceFocus = await page.evaluate(() => document.activeElement?.getAttribute('aria-label'));
   await page.locator('#graph-settings').click();
   const settingsFocus = await page.evaluate(() => document.activeElement?.getAttribute('aria-label'));
   const exclusive = await page.evaluate(() => ({
-    workspace: document.querySelector<HTMLElement>('.workspace-popover')?.hidden,
     settings: document.querySelector<HTMLElement>('.graph-settings-popover')?.hidden,
-    workspacePopup: document.querySelector('#workspace-menu')?.getAttribute('aria-haspopup'),
     settingsPopup: document.querySelector('#graph-settings')?.getAttribute('aria-haspopup'),
   }));
   await page.keyboard.press('Escape');
@@ -516,7 +504,7 @@ await scenario('header popovers do not overlap and close with Escape', async () 
     settings: document.querySelector<HTMLElement>('.graph-settings-popover')?.hidden,
     focused: document.activeElement?.id,
   }));
-  check('header popovers are mutually exclusive', exclusive.workspace === true && exclusive.settings === false && exclusive.workspacePopup === 'dialog' && exclusive.settingsPopup === 'dialog' && workspaceFocus === 'Save current workspace' && settingsFocus === 'Grid', JSON.stringify({ ...exclusive, workspaceFocus, settingsFocus }));
+  check('graph settings opens as a dialog', exclusive.settings === false && exclusive.settingsPopup === 'dialog' && settingsFocus === 'Grid', JSON.stringify({ ...exclusive, settingsFocus }));
   check('graph settings closes with Escape', closed.settings === true && closed.focused === 'graph-settings', JSON.stringify(closed));
 });
 

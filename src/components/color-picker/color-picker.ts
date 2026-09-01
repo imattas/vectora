@@ -5,7 +5,7 @@ export function makeColorPicker(
   onClose?: () => void,
 ): HTMLElement {
   const box = document.createElement('div');
-  box.className = 'color-picker'; box.hidden = true; box.contentEditable = 'false'; box.setAttribute('role', 'listbox');
+  box.className = 'color-picker'; box.hidden = true; box.contentEditable = 'false'; box.setAttribute('role', 'group'); box.setAttribute('aria-label', 'Choose plot color');
   const closePicker = () => { box.hidden = true; onClose?.(); };
   const wheel = document.createElement('div'); wheel.className = 'color-wheel'; wheel.title = 'Choose a hue';
   wheel.setAttribute('role', 'slider'); wheel.setAttribute('tabindex', '0'); wheel.setAttribute('aria-label', 'Color wheel');
@@ -25,7 +25,7 @@ export function makeColorPicker(
   wheel.addEventListener('pointerup', event => { if (wheel.hasPointerCapture(event.pointerId)) { choose(event, true); wheel.releasePointerCapture(event.pointerId); } });
   wheel.addEventListener('pointercancel', event => { if (wheel.hasPointerCapture(event.pointerId)) wheel.releasePointerCapture(event.pointerId); });
   wheel.append(marker); box.append(wheel);
-  const swatches = document.createElement('div'); swatches.className = 'color-wheel-swatches';
+  const swatches = document.createElement('div'); swatches.className = 'color-wheel-swatches'; swatches.setAttribute('role', 'listbox'); swatches.setAttribute('aria-label', 'Preset colors');
   let activeIndex = Number.isFinite(selected) ? Math.max(0, Math.min(colors.length - 1, Math.floor(selected))) : 0;
   const setActive = (index: number, focus = false) => {
     if (!colors.length) return;

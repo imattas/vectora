@@ -84,7 +84,6 @@ import { renderMathPreview } from '../components/math-display.ts';
 import { DEFAULT_GRAPH_SETTINGS, loadGraphSettings, saveGraphSettings, type GraphSettings } from '../components/graph-settings.ts';
 import { getFunctionCompletions } from '../components/function-autocomplete.ts';
 import { initMobileSheet } from '../components/mobile-sheet.ts';
-import { deleteWorkspace, exportWorkspaces, importWorkspaces, listWorkspaces, loadWorkspace, saveWorkspace } from '../state/workspaces.ts';
 
 interface Equation {
   id: number;
@@ -216,6 +215,7 @@ let syncGraphSettingsUi: (() => void) | null = null;
 
 const view: View2D = { cx: 0, cy: 0, upp: 0.01 };
 const camera: Camera3D = { target: [0, 0, 0], radius: 14, theta: -Math.PI / 3, phi: Math.PI / 5.5 };
+let autoFitCameraKey: string | null = null;
 
 // --- canvas / renderers ---
 
@@ -473,6 +473,21 @@ function render() {
       }
     return out;
   };
+  const fitCameraToPoints = (points: number[]) => {
+    if (points.length < 3 || points.length % 3 !== 0) return false;
+    const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+    for (let i = 0; i < points.length; i += 3) {
+      if (!points.slice(i, i + 3).every(isFinite)) continue;
+      for (let c = 0; c < 3; c++) { lo[c] = Math.min(lo[c], points[i + c]); hi[c] = Math.max(hi[c], points[i + c]); }
+    }
+    if (!lo.every(isFinite)) return false;
+    const target: [number, number, number] = [(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2];
+    const halfDiagonal = Math.hypot((hi[0] - lo[0]) / 2, (hi[1] - lo[1]) / 2, (hi[2] - lo[2]) / 2);
+    if (!target.every(isFinite) || !isFinite(halfDiagonal) || !(halfDiagonal > 0)) return false;
+    camera.target = target;
+    camera.radius = Math.min(1e6, Math.max(0.5, halfDiagonal * 3.1));
+    return true;
+  };
   // RK4 streamline of the normalized field through (x0, y0), both directions.
   // Normalizing makes it a direction field: uniform arc-length steps, and the
   // same trajectories (dy/dx = f slope fields integrate as (1, f) normalized).
@@ -595,6 +610,7 @@ function render() {
 
   if (mode === '3d') {
     const scene: Scene3D = { implicits: [], psurfaces: [], curves: [], segments: [], tubes: [], points: [] };
+    const fitPoints: number[] = [];
     for (const eq of active) {
       const color = theme.palette[eq.colorIndex];
       const plot = eq.cls!.plot;
@@ -634,9 +650,20 @@ function render() {
         }
         case 'psurface':
           scene.psurfaces.push({ comps: plot.comps, du: plot.du, dv: plot.dv, color, params });
+          if (eq.parsed?.kind === 'vec' && eq.parsed.items.length === 3) {
+            for (let j = 0; j <= 12; j++) for (let i = 0; i <= 12; i++) {
+              try {
+                const env = { ...constEnv, u: i / 12, v: j / 12, t: time };
+                fitPoints.push(...eq.parsed.items.map(c => evaluate(c, env)));
+              } catch { /* skip an unevaluable surface sample */ }
+            }
+          }
           break;
         case 'pcurve': {
           const flat = sampleCurve(eq, plot.dim);
+          for (let k = 0; k < flat.length; k += plot.dim) {
+            fitPoints.push(flat[k], flat[k + 1], plot.dim === 3 ? flat[k + 2] : 0);
+          }
           const pts = new Float32Array(CURVE_SAMPLES * 3);
           for (let k = 0; k < CURVE_SAMPLES; k++) {
             pts[k * 3] = flat[k * plot.dim];
@@ -686,16 +713,21 @@ function render() {
         }
         case 'point': {
           const p = samplePoint(eq);
-          if (p) scene.points.push({ pos: [p[0], p[1], p[2] ?? 0], color });
+          if (p) { scene.points.push({ pos: [p[0], p[1], p[2] ?? 0], color }); fitPoints.push(p[0], p[1], p[2] ?? 0); }
           break;
         }
         case 'system':
           for (const p of solveFor(eq, plot.dim, plot.residuals)) {
             scene.points.push({ pos: [p[0], p[1], p[2] ?? 0], color });
+            fitPoints.push(p[0], p[1], p[2] ?? 0);
           }
           break;
       }
     }
+    const fitKey = active.filter(eq => !eq.error && eq.cls?.needs3D).map(eq => eq.text).join('\u0000');
+    if (!viewportRow('camera')) {
+      if (fitKey !== autoFitCameraKey) { if (fitCameraToPoints(fitPoints)) autoFitCameraKey = fitKey; }
+    } else autoFitCameraKey = null;
     r3d.render(camera, scene, time, constEnv);
     drawLabels3D(overlayCtx, camera, dpr);
   } else {
@@ -3267,8 +3299,10 @@ const themeToggle = document.getElementById('theme-toggle') as HTMLButtonElement
 const brandLogo = document.querySelector<HTMLImageElement>('.brand-logo');
 function syncThemeToggle() {
   if (!themeToggle) return;
-  const icon = themeToggle.querySelector('span');
-  if (icon) icon.textContent = theme.dark ? '☀' : '☾';
+  const icon = themeToggle.querySelector('svg');
+  if (icon) icon.innerHTML = theme.dark
+    ? '<circle cx="12" cy="12" r="3.5"/><path d="M12 2.5v2M12 19.5v2M4.8 4.8l1.4 1.4M17.8 17.8l1.4 1.4M2.5 12h2M19.5 12h2M4.8 19.2l1.4-1.4M17.8 6.2l1.4-1.4"/>'
+    : '<path d="M19 15.2A7.5 7.5 0 0 1 8.8 5a7.5 7.5 0 1 0 10.2 10.2Z"/>';
   const next = theme.dark ? 'light' : 'dark';
   themeToggle.setAttribute('aria-label', `Switch to ${next} mode`);
   themeToggle.title = `Switch to ${next} mode`;
@@ -3283,141 +3317,6 @@ onThemeChange(() => {
 });
 syncThemeToggle();
 themeToggle?.addEventListener('click', toggleTheme);
-
-// Named workspaces are local snapshots: the URL remains the share mechanism,
-// while these controls make the existing backup/state layer usable from the
-// editor. Loading restores the view and local rendering preferences too.
-const workspaceButton = document.getElementById('workspace-menu') as HTMLButtonElement | null;
-if (workspaceButton) {
-  const menu = document.createElement('div');
-  menu.className = 'workspace-popover';
-  menu.id = 'workspace-popover';
-  menu.hidden = true;
-  menu.setAttribute('role', 'dialog');
-  menu.setAttribute('aria-label', 'Workspaces');
-  workspaceButton.setAttribute('aria-haspopup', 'dialog');
-  workspaceButton.setAttribute('aria-controls', menu.id);
-  document.body.append(menu);
-
-  const title = document.createElement('strong');
-  title.textContent = 'Workspaces';
-  menu.append(title);
-
-  const list = document.createElement('div');
-  list.className = 'workspace-list';
-  menu.append(list);
-
-  const message = document.createElement('p');
-  message.className = 'workspace-message';
-  message.hidden = true;
-  menu.append(message);
-
-  const actions = document.createElement('div');
-  actions.className = 'workspace-actions';
-  menu.append(actions);
-
-  const refresh = () => {
-    list.replaceChildren();
-    const workspaces = listWorkspaces();
-    message.hidden = workspaces.length > 0;
-    message.textContent = workspaces.length ? '' : 'No saved workspaces yet.';
-    for (const workspace of workspaces) {
-      const row = document.createElement('div');
-      row.className = 'workspace-row';
-      const open = document.createElement('button');
-      open.type = 'button';
-      open.className = 'workspace-open';
-      open.textContent = workspace.name;
-      open.title = `Open ${workspace.name}`;
-      open.addEventListener('click', () => {
-        const loaded = loadWorkspace(workspace.id);
-        if (!loaded) return;
-        equations.length = 0;
-        (loaded.equations.length ? loaded.equations : ['']).forEach(text => addEquation(text));
-        if (loaded.view) Object.assign(view, loaded.view);
-        if (loaded.camera) { camera.target = [...loaded.camera.target]; camera.radius = loaded.camera.radius; camera.theta = loaded.camera.theta; camera.phi = loaded.camera.phi; }
-        if (loaded.settings) {
-          graphSettings = { ...DEFAULT_GRAPH_SETTINGS, ...loaded.settings };
-          saveGraphSettings(graphSettings);
-          syncGraphSettingsUi?.();
-        }
-        recompileAll(); renderAll(); saveUrl(true); requestRender();
-        close();
-      });
-      const remove = document.createElement('button');
-      remove.type = 'button';
-      remove.className = 'workspace-delete';
-      remove.textContent = '×';
-      remove.setAttribute('aria-label', `Delete ${workspace.name}`);
-      remove.addEventListener('click', () => {
-        if (!confirm(`Delete workspace “${workspace.name}”?`)) return;
-        deleteWorkspace(workspace.id);
-        refresh();
-      });
-      row.append(open, remove);
-      list.append(row);
-    }
-  };
-
-  const save = makeButton('Save current', 'Save current workspace', () => {
-    const name = prompt('Workspace name:', 'Untitled');
-    if (!name?.trim()) return;
-    saveWorkspace(name.trim(), equations.map(eq => eq.text), mode === '2d' ? { ...view } : undefined, graphSettings, mode === '3d' ? { target: [...camera.target], radius: camera.radius, theta: camera.theta, phi: camera.phi } : undefined);
-    refresh();
-  }, 'workspace-save');
-  actions.append(save);
-
-  const exportButton = makeButton('Backup', 'Export workspace backup', () => {
-    const blob = new Blob([exportWorkspaces()], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url; link.download = 'vectora-workspaces.json'; link.click();
-    setTimeout(() => URL.revokeObjectURL(url), 0);
-  }, 'workspace-backup');
-  actions.append(exportButton);
-
-  const importInput = document.createElement('input');
-  importInput.type = 'file'; importInput.accept = 'application/json,.json'; importInput.hidden = true;
-  importInput.addEventListener('change', async () => {
-    const file = importInput.files?.[0];
-    importInput.value = '';
-    if (!file) return;
-    try {
-      const count = importWorkspaces(await file.text());
-      refresh();
-      message.hidden = false;
-      message.textContent = `Imported ${count} workspace${count === 1 ? '' : 's'}.`;
-    } catch (error) {
-      message.hidden = false;
-      message.textContent = error instanceof Error ? error.message : 'Could not import that backup.';
-    }
-  });
-  document.body.append(importInput);
-  actions.append(makeButton('Restore backup', 'Import workspace backup', () => importInput.click(), 'workspace-import'));
-
-  function close(restoreFocus = false) {
-    menu.hidden = true;
-    workspaceButton!.setAttribute('aria-expanded', 'false');
-    if (restoreFocus) workspaceButton!.focus();
-  }
-  workspaceButton.addEventListener('click', () => {
-    const settings = document.querySelector<HTMLElement>('.graph-settings-popover');
-    if (settings && !settings.hidden) {
-      settings.hidden = true;
-      document.getElementById('graph-settings')?.setAttribute('aria-expanded', 'false');
-    }
-    menu.hidden = !menu.hidden;
-    workspaceButton.setAttribute('aria-expanded', String(!menu.hidden));
-    if (!menu.hidden) {
-      refresh();
-      save.focus();
-    }
-  });
-  document.addEventListener('keydown', event => { if (event.key === 'Escape' && !menu.hidden) { close(true); event.preventDefault(); } });
-  document.addEventListener('pointerdown', event => {
-    if (!menu.hidden && event.target instanceof Node && !menu.contains(event.target) && event.target !== workspaceButton) close();
-  });
-}
 
 // Compact graph settings; state is local and never changes the shared URL.
 const settingsButton = document.getElementById('graph-settings');
@@ -3451,14 +3350,6 @@ if (settingsButton) {
     if (!settings.hidden) settings.querySelector<HTMLElement>('input, select, button')?.focus();
   });
   settingsButton.setAttribute('aria-expanded', 'false');
-  settingsButton.addEventListener('click', () => {
-    if (settings.hidden) return;
-    const workspace = document.querySelector<HTMLElement>('.workspace-popover');
-    if (workspace && !workspace.hidden) {
-      workspace.hidden = true;
-      document.getElementById('workspace-menu')?.setAttribute('aria-expanded', 'false');
-    }
-  });
   document.addEventListener('keydown', event => {
     if (event.key !== 'Escape') return;
     if (settings.hidden) return;
@@ -3534,7 +3425,7 @@ const mobilePanelToggle = document.getElementById('mobile-panel-toggle') as HTML
 const panel = document.getElementById('panel');
 const panelHeader = document.getElementById('panel-header');
 if (panel && mobilePanelToggle && panelHeader) initMobileSheet(panel, mobilePanelToggle, panelHeader);
-function clearWorkspace() {
+function clearExpressions() {
   pushUndo('clear'); equations.length = 0; addEquation(''); recompileAll(); renderAll(); saveUrl(); requestRender();
 }
 function saveSvg() {
@@ -3632,7 +3523,7 @@ if (addActions) {
   recompileAll(); renderAll(); saveUrl(); requestRender();
   const index = equations.length - 1; const last = lineEls()[index]; if (last) { last.focus(); setCaret(index, 0); }
   }));
-  addActions.append(makeButton('Clear', 'Clear all expressions', clearWorkspace, 'sidebar-action'));
+  addActions.append(makeButton('Clear', 'Clear all expressions', clearExpressions, 'sidebar-action'));
   addActions.append(makeButton('Save SVG', 'Save the current graph as an SVG file', saveSvg, 'sidebar-action'));
   let savedSymbolRange: Range | null = null;
   let savedSymbolCaret: { line: number; offset: number } | null = null;
