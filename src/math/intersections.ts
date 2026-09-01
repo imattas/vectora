@@ -21,7 +21,11 @@ export function intersect(a: LineObject, b: LineObject, epsilon = EPSILON): Inte
   const nc = normalize(b.a); const nd = normalize(b.b);
   const da = sub(nb, na);
   const db = sub(nd, nc);
-  if (Math.hypot(da.x, da.y) <= epsilon / scale || Math.hypot(db.x, db.y) <= epsilon / scale) {
+  // da/db are expressed in normalized coordinates, so the degeneracy
+  // threshold must be scale-independent too. Dividing epsilon by the
+  // original coordinate magnitude rejects ordinary directions when all
+  // coordinates happen to be very small.
+  if (Math.hypot(da.x, da.y) <= epsilon || Math.hypot(db.x, db.y) <= epsilon) {
     return { kind: 'invalid', reason: 'Cannot intersect a zero-length geometry.' };
   }
   const denom = cross(da, db);

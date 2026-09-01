@@ -74,4 +74,12 @@ describe('geometry intersections', () => {
     const hit = intersect(line({ x: -max, y: -max }, { x: max, y: max }), line({ x: -max, y: max }, { x: max, y: -max }));
     expect(hit).toMatchObject({ kind: 'point', point: { x: 0, y: 0 } });
   });
+
+  it('keeps tiny-coordinate line intersections scale invariant', () => {
+    const hit = intersect(
+      line({ x: 0, y: 0 }, { x: 1e-12, y: 1e-12 }),
+      line({ x: 0, y: 1e-12 }, { x: 1e-12, y: 0 }),
+    );
+    expect(hit).toMatchObject({ kind: 'point', point: { x: 5e-13, y: 5e-13 } });
+  });
 });
