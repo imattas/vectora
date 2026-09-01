@@ -3402,19 +3402,25 @@ if (addActions) {
   }, 'sidebar-action'));
   addActions.append(makeButton('Save SVG', 'Save the current graph as an SVG file', saveSvg, 'sidebar-action'));
   let savedSymbolRange: Range | null = null;
+  let savedSymbolCaret: { line: number; offset: number } | null = null;
   const keyboardDock = document.getElementById('keyboard-dock');
   (keyboardDock ?? addActions).append(makeSymbolKeyboard({
     onBeforeOpen: () => {
       const selection = getSelection();
       savedSymbolRange = selection?.rangeCount ? selection.getRangeAt(0).cloneRange() : null;
+      savedSymbolCaret = caretPos();
     },
-    onInsert: symbol => {
+    onInsert: (symbol, cursorOffset) => {
       const selection = getSelection();
       if (savedSymbolRange && listEl.contains(savedSymbolRange.commonAncestorContainer)) {
         selection?.removeAllRanges(); selection?.addRange(savedSymbolRange);
       }
       insertStatements(symbol);
+      if (savedSymbolCaret && cursorOffset !== undefined && savedSymbolCaret.line >= 0) {
+        setCaret(savedSymbolCaret.line, savedSymbolCaret.offset + cursorOffset);
+      }
       savedSymbolRange = null;
+      savedSymbolCaret = null;
     },
   }));
 }
