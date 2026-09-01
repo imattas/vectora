@@ -33,7 +33,7 @@ export type Expr =
 export const FUNCTIONS = new Set([
   'sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'atan2',
   'sinh', 'cosh', 'tanh', 'sech', 'asinh', 'acosh', 'atanh',
-  'sqrt', 'abs', 'exp', 'ln', 'log', 'floor', 'ceil', 'round',
+  'sqrt', 'cbrt', 'abs', 'exp', 'ln', 'log', 'floor', 'ceil', 'round',
   'min', 'max', 'mod', 'sign', 'fract',
   'erf', 'normalpdf', 'normalcdf',
   'gcd', 'isprime', 'gamma', 'factorial', 'sinc', 'coth',
@@ -614,7 +614,7 @@ export const EVAL_FNS: Record<string, (...xs: number[]) => number> = {
   sinh: Math.sinh, cosh: Math.cosh, tanh: Math.tanh,
   sech: x => 1 / Math.cosh(x),
   asinh: Math.asinh, acosh: Math.acosh, atanh: Math.atanh,
-  sqrt: Math.sqrt, abs: Math.abs, exp: Math.exp, ln: Math.log, log: Math.log10,
+  sqrt: Math.sqrt, cbrt: Math.cbrt, abs: Math.abs, exp: Math.exp, ln: Math.log, log: Math.log10,
   floor: Math.floor, ceil: Math.ceil, round: Math.round, sign: Math.sign,
   min: Math.min, max: Math.max,
   mod: (a, b) => a - Math.floor(a / b) * b,

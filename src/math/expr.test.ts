@@ -203,8 +203,14 @@ describe('factorial and special functions', () => {
     expect(ev('coth(1)')).toBeCloseTo(1 / Math.tanh(1), 12);
   });
 
+  it('evaluates real cube roots, including negative inputs', () => {
+    expect(ev('cbrt(8)')).toBe(2);
+    expect(ev('cbrt(-8)')).toBe(-2);
+  });
+
   it('compiles to the GLSL twins', () => {
     expect(toGLSL(parseExpr('gamma(x)'))).toBe('eq_gamma(x)');
+    expect(toGLSL(parseExpr('cbrt(x)'))).toBe('eq_cbrt(x)');
     expect(toGLSL(parseExpr('x!'))).toBe('eq_factorial(x)');
     expect(toGLSL(parseExpr('sinc(x)'))).toBe('eq_sinc(x)');
     expect(toGLSL(parseExpr('coth(x)'))).toBe('eq_coth(x)');

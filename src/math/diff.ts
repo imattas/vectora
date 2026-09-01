@@ -128,6 +128,7 @@ export function diff(e: Expr, v: string): Expr {
         case 'ln': return div(da, a);
         case 'log': return div(da, mul(a, num(Math.LN10)));
         case 'sqrt': return div(da, mul(num(2), call('sqrt', a)));
+        case 'cbrt': return div(da, mul(num(3), pow(call('cbrt', a), num(2))));
         case 'abs': return chain(call('sign', a));
         case 'erf': return chain(mul(num(2 / Math.sqrt(Math.PI)), call('exp', neg(pow(a, num(2))))));
         case 'sinc':

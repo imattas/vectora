@@ -8,6 +8,7 @@ import { type Expr, ISPRIME_MAX, LANCZOS, ineqComparisons } from './expr.ts';
 
 export const FN_GLSL: Record<string, string> = {
   ln: 'log',
+  cbrt: 'eq_cbrt',
   log: 'eq_log10',
   atan2: 'atan',
   round: 'eq_round',
@@ -27,6 +28,7 @@ export const FN_GLSL: Record<string, string> = {
 /** Helper functions some expressions need; prepend once to the shader. */
 export const GLSL_PRELUDE = `
 float eq_log10(float x) { return log(x) * 0.4342944819032518; }
+float eq_cbrt(float x) { return sign(x) * pow(abs(x), 0.3333333333333333); }
 float eq_round(float x) { return floor(x + 0.5); }
 float eq_sech(float x) { return 1.0 / cosh(x); }
 float eq_erf(float x) {

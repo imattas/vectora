@@ -68,16 +68,16 @@ function appendFormatted(parent: HTMLElement, text: string, fractions: boolean, 
     }
   }
   for (let i = 0; i < text.length;) {
-    const functionName = text.startsWith('sqrt(', i) ? 'sqrt' : text.startsWith('abs(', i) ? 'abs' : null;
+    const functionName = text.startsWith('sqrt(', i) ? 'sqrt' : text.startsWith('cbrt(', i) ? 'cbrt' : text.startsWith('abs(', i) ? 'abs' : null;
     if (functionName) {
       const open = i + functionName.length;
       const close = matchingParen(text, open);
       if (close >= 0) {
         const body = document.createElement('span');
-        body.className = functionName === 'sqrt' ? 'math-root' : 'math-abs'; mark(body, sourceOffset + i, sourceOffset + close + 1);
+        body.className = functionName === 'abs' ? 'math-abs' : 'math-root'; mark(body, sourceOffset + i, sourceOffset + close + 1);
         const content = document.createElement('span'); content.className = 'math-radicand'; mark(content, sourceOffset + open + 1, sourceOffset + close);
         appendFormatted(content, text.slice(open + 1, close), true, sourceOffset + open + 1);
-        if (functionName === 'sqrt') { const radical = document.createElement('span'); radical.className = 'math-radical'; radical.textContent = '√'; body.append(radical, content); }
+        if (functionName === 'sqrt' || functionName === 'cbrt') { const radical = document.createElement('span'); radical.className = 'math-radical'; radical.textContent = functionName === 'cbrt' ? '³√' : '√'; body.append(radical, content); }
         else { const left = document.createElement('span'); left.textContent = '|'; const right = document.createElement('span'); right.textContent = '|'; body.append(left, content, right); }
         parent.append(body); i = close + 1; continue;
       }
@@ -95,7 +95,7 @@ function appendFormatted(parent: HTMLElement, text: string, fractions: boolean, 
     }
     let end = i + 1;
     while (end < text.length && text[end] !== '/' && text[end] !== '^'
-      && !text.startsWith('sqrt(', end) && !text.startsWith('abs(', end)) end++;
+      && !text.startsWith('sqrt(', end) && !text.startsWith('cbrt(', end) && !text.startsWith('abs(', end)) end++;
     const chunk = document.createElement('span'); mark(chunk, sourceOffset + i, sourceOffset + end);
     chunk.textContent = formatPlainGlyphs(text.slice(i, end)); parent.append(chunk);
     i = end;
