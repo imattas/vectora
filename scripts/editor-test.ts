@@ -334,7 +334,10 @@ await scenario('parametric 3D scenes auto-frame with SVG controls and no workspa
     workspace: !!document.querySelector('#workspace-menu, .workspace-popover'),
     svgControls: document.querySelectorAll('#zoom-in svg, #zoom-out svg, #home-view svg, #graph-settings svg, #onboarding-help svg, #theme-toggle svg').length,
   }));
-  check('parametric 3D scenes auto-frame with SVG controls and no workspaces', state.radius < 6 && state.errors.length === 0 && !state.workspace && state.svgControls === 6, JSON.stringify(state));
+  await page.locator('#home-view').click();
+  await page.waitForTimeout(300);
+  const resetRadius = await page.evaluate(() => (globalThis as { __eq?: { camera?: { radius: number } } }).__eq?.camera?.radius ?? Infinity);
+  check('parametric 3D scenes auto-frame with SVG controls and no workspaces', state.radius < 6 && resetRadius < 6 && state.errors.length === 0 && !state.workspace && state.svgControls === 6, JSON.stringify({ ...state, resetRadius }));
 });
 
 await scenario('row action menus expose state and restore focus', async () => {

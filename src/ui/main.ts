@@ -3281,7 +3281,7 @@ function resetGraphView() {
     if (!(shortEdge > 0)) return;
     view.cx = 0; view.cy = 0; view.upp = 12 / shortEdge;
   }
-  else { camera.target = [0, 0, 0]; camera.radius = 14; camera.theta = -Math.PI / 3; camera.phi = Math.PI / 5.5; }
+  else { camera.target = [0, 0, 0]; camera.radius = 14; camera.theta = -Math.PI / 3; camera.phi = Math.PI / 5.5; autoFitCameraKey = null; }
   requestRender(); scheduleViewportWriteback();
 }
 
