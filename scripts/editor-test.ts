@@ -366,6 +366,21 @@ await scenario('help search and theme controls work', async () => {
   check('Help theme control updates the document theme', themed.theme === 'dark' && themed.label === 'Switch to light mode', JSON.stringify(themed));
 });
 
+await scenario('mobile sheet closes with Escape and restores focus', async () => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(ORIGIN + '/#y=x');
+  await page.waitForSelector('#mobile-panel-toggle');
+  await page.locator('#equations').focus();
+  await page.keyboard.press('Escape');
+  const state = await page.evaluate(() => ({
+    collapsed: document.querySelector('#panel')?.classList.contains('mobile-collapsed'),
+    focused: document.activeElement?.id === 'mobile-panel-toggle',
+    expanded: document.querySelector('#mobile-panel-toggle')?.getAttribute('aria-expanded'),
+  }));
+  check('mobile Escape collapses the sheet and returns focus', state.collapsed && state.focused && state.expanded === 'false', JSON.stringify(state));
+  await page.setViewportSize({ width: 1000, height: 700 });
+});
+
 await browser.close();
 server.kill();
 

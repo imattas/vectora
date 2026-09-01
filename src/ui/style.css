@@ -550,6 +550,7 @@ html, body {
     transition: transform .2s ease;
   }
   #panel::before { content: ''; position: absolute; z-index: 1; top: 6px; left: 50%; width: 38px; height: 4px; transform: translateX(-50%); border-radius: 999px; background: var(--panel-border); }
+  #panel-header { touch-action: none; }
   #panel.mobile-collapsed { transform: translateY(calc(100% - 48px)); }
   #gl, #overlay {
     left: 0;

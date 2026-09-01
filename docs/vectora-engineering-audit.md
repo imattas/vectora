@@ -18,6 +18,7 @@ workspace backups, and exports.
 | Autocomplete | Suggestions had no keyboard navigation. | Added ArrowUp/ArrowDown, Tab, Enter, Escape, listbox semantics. | Fixed. |
 | Onboarding | First-run orientation was missing. | Added welcome/development notice and onboarding flow with skip/start actions. | Fixed. |
 | Mobile shell | Desktop sidebar layout reduced the graph viewport on narrow screens. | Added bottom-sheet presentation, swipe collapse/expand, safe-area spacing, and a non-overlapping toggle. | Fixed; manually verified at 390×844. |
+| Mobile dismissal | The bottom sheet had no keyboard dismissal path and pointer capture could throw on synthetic/edge pointer events. | Added mobile Escape-to-collapse with focus return, guarded pointer capture, and disabled native header panning during the gesture. | Fixed; covered by browser smoke checks. |
 | Header controls | Help, settings, theme, and onboarding controls could overlap. | Consolidated responsive header spacing and accessible labels. | Fixed. |
 | Color picker | Mouse-only color selection left keyboard users without swatch navigation or reliable dismissal/focus return. | Added Arrow/Home/End navigation, focused swatch opening, Escape dismissal, and focus return to the editor host. | Fixed; covered by browser smoke checks. |
 | Help theme | The standalone Help page ignored the calculator's saved theme and always used light colors. | Added the same `eq-theme` preference, OS fallback, theme toggle, dark variables, matching logo asset, and cross-tab storage synchronization. | Fixed; manually verified in both modes. |
@@ -76,7 +77,7 @@ The current implementation has repeatedly passed:
 vitest: 38 files, 573 tests passed
 npm run typecheck: passed
 npm run web:build: passed
-npm run test:editor: 24 scenarios passed
+npm run test:editor: 25 scenarios passed
 git diff --check: passed
 http://localhost:8080/: HTTP 200
 GitHub Pages workflow: successful on prior pushed revisions
