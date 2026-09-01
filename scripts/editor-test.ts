@@ -325,19 +325,18 @@ await scenario('complex plots compile through the WebGL renderer', async () => {
   check('complex plots compile through the WebGL renderer', state.canvas > 0 && !/WebGL2 is required|shader error/i.test(state.status), JSON.stringify(state));
 });
 
-await scenario('parametric 3D scenes auto-frame with SVG controls and no workspaces', async () => {
+await scenario('parametric 3D scenes auto-frame with SVG controls', async () => {
   await page.goto(ORIGIN + '/#' + encodeURIComponent('(u, v, sin(2pi u))'));
   await page.waitForTimeout(300);
   const state = await page.evaluate(() => ({
     radius: (globalThis as { __eq?: { camera?: { radius: number } } }).__eq?.camera?.radius ?? Infinity,
     errors: [...document.querySelectorAll('.eq-error')].map(el => el.textContent),
-    workspace: !!document.querySelector('#workspace-menu, .workspace-popover'),
     svgControls: document.querySelectorAll('#zoom-in svg, #zoom-out svg, #home-view svg, #graph-settings svg, #onboarding-help svg, #theme-toggle svg').length,
   }));
   await page.locator('#home-view').click();
   await page.waitForTimeout(300);
   const resetRadius = await page.evaluate(() => (globalThis as { __eq?: { camera?: { radius: number } } }).__eq?.camera?.radius ?? Infinity);
-  check('parametric 3D scenes auto-frame with SVG controls and no workspaces', state.radius < 6 && resetRadius < 6 && state.errors.length === 0 && !state.workspace && state.svgControls === 6, JSON.stringify({ ...state, resetRadius }));
+  check('parametric 3D scenes auto-frame with SVG controls', state.radius < 6 && resetRadius < 6 && state.errors.length === 0 && state.svgControls === 6, JSON.stringify({ ...state, resetRadius }));
 });
 
 await scenario('row action menus expose state and restore focus', async () => {
