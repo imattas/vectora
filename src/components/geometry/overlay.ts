@@ -8,6 +8,7 @@ export interface GeometryOverlayOptions {
   pinned?: GeometryObject | null;
   colorFor?: (object: GeometryObject) => string;
   hoverPoint?: Point2 | null;
+  angleUnit?: 'degrees' | 'radians';
 }
 
 const color = '#56b4ff';
@@ -76,7 +77,8 @@ export function drawGeometryOverlay(ctx: CanvasRenderingContext2D, view: { cx: n
           const middle = (start + end) / 2;
           if (measurement.ok) {
             ctx.font = '11px ui-sans-serif, system-ui'; ctx.fillStyle = ctx.strokeStyle;
-            ctx.fillText(`${measurement.value.degrees}°`, c.x + (radius + 7) * Math.cos(middle), c.y + (radius + 7) * Math.sin(middle));
+            const label = options.angleUnit === 'radians' ? `${measurement.value.radians} rad` : `${measurement.value.degrees}°`;
+            ctx.fillText(label, c.x + (radius + 7) * Math.cos(middle), c.y + (radius + 7) * Math.sin(middle));
           }
         }
       }

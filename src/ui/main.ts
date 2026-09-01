@@ -958,6 +958,7 @@ function render() {
     drawGeometryOverlay(overlayCtx, view, dpr, geometryAnalysis, {
       hover: geometryHover,
       hoverPoint: geometryHoverPoint,
+      angleUnit: graphSettings.angleUnit,
       colorFor: object => {
         const row = [...geometryAnalysis.byRow.entries()].find(([, values]) => values.includes(object))?.[0];
         return cssColor(theme.palette[equations[row ?? 0]?.colorIndex ?? 0]);
