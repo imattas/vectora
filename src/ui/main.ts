@@ -3309,7 +3309,7 @@ resize();
 renderAll();
 
 const addActions = document.getElementById('sidebar-actions');
-const mobilePanelToggle = document.getElementById('mobile-panel-toggle');
+const mobilePanelToggle = document.getElementById('mobile-panel-toggle') as HTMLButtonElement | null;
 const panel = document.getElementById('panel');
 const panelHeader = document.getElementById('panel-header');
 if (panel && mobilePanelToggle && panelHeader) initMobileSheet(panel, mobilePanelToggle, panelHeader);
