@@ -53,6 +53,7 @@ workspace backups, and exports.
 | --- | --- | --- | --- |
 | Workspaces | Local save/open existed only as prompt-driven actions and lacked recents/deletion. | Added versioned local storage, recent selector, deletion confirmation, JSON backup import/export, and load API. | Fixed. |
 | Backup validation | Malformed records could enter storage with unsafe field shapes. | Validate records, timestamps, and equation strings during import. | Fixed. |
+| Installed app shell | The manifest made Vectora installable, but a cold offline launch had no cached shell. | Added a versioned service worker with cached shell assets, network-first navigation, and offline fallback. | Fixed; `dist-web/sw.js` verified. |
 | Help | New geometry, keyboard, point-of-interest, settings, mobile, and workspace flows were under-documented. | Expanded Help with About, Features, syntax, troubleshooting, controls, and examples. | Fixed. |
 | Repository hygiene | License and Pages/custom-domain deployment artifacts were required. | Added `LICENSE`, Pages workflow, and custom-domain configuration; removed requested `llms.txt` and About page. | Fixed. |
 
