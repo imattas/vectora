@@ -208,9 +208,17 @@ describe('factorial and special functions', () => {
     expect(ev('cbrt(-8)')).toBe(-2);
   });
 
+  it('evaluates arbitrary integer roots in the real domain', () => {
+    expect(ev('nroot(16, 4)')).toBe(2);
+    expect(ev('nroot(-27, 3)')).toBe(-3);
+    expect(ev('nroot(-16, 4)')).toBeNaN();
+    expect(ev('nroot(16, 2.5)')).toBeNaN();
+  });
+
   it('compiles to the GLSL twins', () => {
     expect(toGLSL(parseExpr('gamma(x)'))).toBe('eq_gamma(x)');
     expect(toGLSL(parseExpr('cbrt(x)'))).toBe('eq_cbrt(x)');
+    expect(toGLSL(parseExpr('nroot(x, 3)'))).toBe('eq_nroot(x, 3.0)');
     expect(toGLSL(parseExpr('x!'))).toBe('eq_factorial(x)');
     expect(toGLSL(parseExpr('sinc(x)'))).toBe('eq_sinc(x)');
     expect(toGLSL(parseExpr('coth(x)'))).toBe('eq_coth(x)');

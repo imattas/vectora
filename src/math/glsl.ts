@@ -9,6 +9,7 @@ import { type Expr, ISPRIME_MAX, LANCZOS, ineqComparisons } from './expr.ts';
 export const FN_GLSL: Record<string, string> = {
   ln: 'log',
   cbrt: 'eq_cbrt',
+  nroot: 'eq_nroot',
   log: 'eq_log10',
   atan2: 'atan',
   round: 'eq_round',
@@ -29,6 +30,11 @@ export const FN_GLSL: Record<string, string> = {
 export const GLSL_PRELUDE = `
 float eq_log10(float x) { return log(x) * 0.4342944819032518; }
 float eq_cbrt(float x) { return sign(x) * pow(abs(x), 0.3333333333333333); }
+float eq_nroot(float x, float n) {
+  float ni = floor(n + 0.5);
+  if (abs(n) < 0.5 || abs(n - ni) > 0.00001 || (x < 0.0 && mod(abs(ni), 2.0) < 0.5)) return sqrt(-1.0);
+  return sign(x) * pow(abs(x), 1.0 / ni);
+}
 float eq_round(float x) { return floor(x + 0.5); }
 float eq_sech(float x) { return 1.0 / cosh(x); }
 float eq_erf(float x) {
