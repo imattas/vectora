@@ -38,8 +38,10 @@ workspace backups, and exports.
 - Numeric scalar expressions such as `9x30/64` continue through the ordinary
   evaluator/solver path.
 - Visual formatting covers comparison glyphs, multiplication/division glyphs,
-  constants, powers, stacked fractions, square roots, and absolute values while
+  constants, powers, stacked fractions, square roots, cube roots, and absolute values while
   preserving canonical source text.
+- `cbrt(x)` evaluates real cube roots for negative inputs, differentiates
+  symbolically, compiles to WebGL, and displays as `³√x`.
 - `perpendicularBisector(A, B)` and
   `tangent(circle(O, r), P)` validate degenerate or off-circle inputs and
   produce line overlays.
