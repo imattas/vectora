@@ -1,12 +1,13 @@
 export interface GraphSettings {
   grid: boolean;
+  axes: boolean;
   labels: boolean;
   points: boolean;
   snap: boolean;
   angleUnit: 'degrees' | 'radians';
 }
 
-export const DEFAULT_GRAPH_SETTINGS: GraphSettings = { grid: true, labels: true, points: true, snap: false, angleUnit: 'degrees' };
+export const DEFAULT_GRAPH_SETTINGS: GraphSettings = { grid: true, axes: true, labels: true, points: true, snap: false, angleUnit: 'degrees' };
 const STORAGE_KEY = 'vectora-graph-settings-v1';
 
 export function loadGraphSettings(): GraphSettings {

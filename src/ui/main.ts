@@ -953,7 +953,7 @@ function render() {
         if (pts.length >= 4) extras.polylines.push({ pts, color: cssColor(theme.palette[eq.colorIndex]), width: 2 });
       }
     }
-    r2d.render(view, layers, time, constEnv, graphSettings.grid ? gridSpecs : null);
+    r2d.render(view, layers, time, constEnv, graphSettings.grid ? gridSpecs : null, graphSettings.axes);
     drawLabels2D(overlayCtx, view, dpr, graphSettings.points ? extras : { ...extras, points: [] }, graphSettings.labels && !gridFields.length && view.upp >= 1e-6);
     drawGeometryOverlay(overlayCtx, view, dpr, geometryAnalysis, {
       hover: geometryHover,
@@ -3226,12 +3226,12 @@ if (settingsButton) {
   const settings = document.createElement('div'); settings.className = 'graph-settings-popover'; settings.hidden = true;
   settings.setAttribute('role', 'dialog'); settings.setAttribute('aria-label', 'Graph settings');
   const title = document.createElement('strong'); title.textContent = 'Graph settings'; settings.append(title);
-  const addSetting = (key: 'grid' | 'labels' | 'points' | 'snap', label: string) => {
+  const addSetting = (key: 'grid' | 'axes' | 'labels' | 'points' | 'snap', label: string) => {
     const row = document.createElement('label'); row.className = 'graph-setting';
     const input = document.createElement('input'); input.type = 'checkbox'; input.checked = graphSettings[key]; input.addEventListener('change', () => { graphSettings = { ...graphSettings, [key]: input.checked }; saveGraphSettings(graphSettings); requestRender(); });
     row.append(input, document.createTextNode(label)); settings.append(row);
   };
-  addSetting('grid', 'Grid and axes'); addSetting('labels', 'Axis labels'); addSetting('points', 'Points and markers');
+  addSetting('grid', 'Grid'); addSetting('axes', 'Axes'); addSetting('labels', 'Axis labels'); addSetting('points', 'Points and markers');
   addSetting('snap', 'Snap dragged points to grid');
   const angleLabel = document.createElement('label'); angleLabel.className = 'graph-setting'; angleLabel.textContent = 'Angle units';
   const angleSelect = document.createElement('select'); angleSelect.setAttribute('aria-label', 'Angle units');
@@ -3240,7 +3240,7 @@ if (settingsButton) {
   }
   angleSelect.addEventListener('change', () => { graphSettings = { ...graphSettings, angleUnit: angleSelect.value === 'radians' ? 'radians' : 'degrees' }; saveGraphSettings(graphSettings); requestRender(); });
   angleLabel.append(angleSelect); settings.append(angleLabel);
-  const reset = makeButton('Reset', 'Reset graph settings', () => { graphSettings = { ...DEFAULT_GRAPH_SETTINGS }; saveGraphSettings(graphSettings); settings.querySelectorAll<HTMLInputElement>('input').forEach((input, i) => { input.checked = [graphSettings.grid, graphSettings.labels, graphSettings.points, graphSettings.snap][i]; }); angleSelect.value = graphSettings.angleUnit; requestRender(); }, 'graph-settings-reset');
+  const reset = makeButton('Reset', 'Reset graph settings', () => { graphSettings = { ...DEFAULT_GRAPH_SETTINGS }; saveGraphSettings(graphSettings); settings.querySelectorAll<HTMLInputElement>('input').forEach((input, i) => { input.checked = [graphSettings.grid, graphSettings.axes, graphSettings.labels, graphSettings.points, graphSettings.snap][i]; }); angleSelect.value = graphSettings.angleUnit; requestRender(); }, 'graph-settings-reset');
   settings.append(reset); document.body.append(settings);
   settingsButton.addEventListener('click', () => { settings.hidden = !settings.hidden; settingsButton.setAttribute('aria-expanded', String(!settings.hidden)); });
   settingsButton.setAttribute('aria-expanded', 'false');

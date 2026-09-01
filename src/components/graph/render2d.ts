@@ -121,7 +121,7 @@ float gridLine(float c, float lg, float spacing, float halfWidthPx) {
  * The grid is itself a field renderer: each family draws the level sets
  * c = k·spacing via gridLine. The Cartesian grid is the identity pair (x, y).
  */
-function gridFrag(specs: GridSpec[]): string {
+function gridFrag(specs: GridSpec[], showAxes: boolean): string {
   const params = [...new Set(specs.flatMap(s => s.params))];
   const decls = specs.map((s, k) => {
     const grad = s.gradGlsl
@@ -137,7 +137,7 @@ function gridFrag(specs: GridSpec[]): string {
       float lg = ${s.gradGlsl ? `length(grad${k}(p.x, p.y)) * uUpp` : 'length(vec2(dFdx(c), dFdy(c)))'};
       minorA = max(minorA, gridLine(c, lg, uMinor${k}, 0.5));
       majorA = max(majorA, gridLine(c, lg, uMajor${k}, 0.5));
-      axisA = max(axisA, 1.0 - smoothstep(0.9, 1.9, abs(c) / max(lg, 1e-24)));
+${showAxes ? '      axisA = max(axisA, 1.0 - smoothstep(0.9, 1.9, abs(c) / max(lg, 1e-24)));' : ''}
     }
   }`).join('');
   return `#version 300 es
@@ -630,6 +630,7 @@ export class Renderer2D {
     time = 0,
     env: Record<string, number> = {},
     gridSpecs?: GridSpec[] | null,
+    showAxes = true,
   ): void {
     const { gl } = this;
     const w = gl.drawingBufferWidth;
@@ -656,7 +657,7 @@ export class Renderer2D {
         ];
       }
       try {
-        const grid = this.cache.get(QUAD_VERT, gridFrag(specs));
+        const grid = this.cache.get(QUAD_VERT, gridFrag(specs, showAxes));
         gl.useProgram(grid);
         gl.uniform2f(gl.getUniformLocation(grid, 'uCenter'), view.cx, view.cy);
         gl.uniform1f(gl.getUniformLocation(grid, 'uUpp'), view.upp);
