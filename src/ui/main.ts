@@ -3427,7 +3427,16 @@ if (addActions) {
       savedSymbolRange = selection?.rangeCount ? selection.getRangeAt(0).cloneRange() : null;
       savedSymbolCaret = caretPos();
     },
-    onInsert: (symbol, cursorOffset) => {
+    onInsert: (symbol, cursorOffset, wrapSelection) => {
+      let selectionLength = 0;
+      if (wrapSelection === 'fraction' && savedSymbolRange && !savedSymbolRange.collapsed) {
+        const selected = savedSymbolRange.toString();
+        if (selected) {
+          selectionLength = selected.length;
+          symbol = `(${selected})/(1)`;
+          cursorOffset = selectionLength + 4;
+        }
+      }
       const selection = getSelection();
       if (savedSymbolRange && listEl.contains(savedSymbolRange.commonAncestorContainer)) {
         selection?.removeAllRanges(); selection?.addRange(savedSymbolRange);

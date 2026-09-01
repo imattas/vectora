@@ -1,5 +1,5 @@
 import { makeButton } from './button/button.ts';
-export interface KeyboardKey { label: string; insert: string; cursorOffset?: number }
+export interface KeyboardKey { label: string; insert: string; cursorOffset?: number; wrapSelection?: 'fraction' }
 export const KEY_GROUPS: ReadonlyArray<readonly [string, readonly KeyboardKey[]]> = [
   ['Numbers', '1234567890.'.split('').map(label => ({ label, insert: label }))],
   ['Operators', ['+', '−', '×', '÷', '/', '=', '(', ')', ',', '|'].map(label => ({
@@ -8,7 +8,7 @@ export const KEY_GROUPS: ReadonlyArray<readonly [string, readonly KeyboardKey[]]
   }))],
   ['Powers & fractions', [
     { label: 'xʸ', insert: '^', cursorOffset: 1 }, { label: 'x²', insert: '^2' },
-    { label: '√', insert: 'sqrt(', cursorOffset: 5 }, { label: 'a/b', insert: '(1)/(2)', cursorOffset: 1 },
+    { label: '√', insert: 'sqrt(', cursorOffset: 5 }, { label: 'a/b', insert: '(1)/(2)', cursorOffset: 1, wrapSelection: 'fraction' },
     { label: 'abs', insert: 'abs(', cursorOffset: 4 },
   ]],
   ['Functions', ['sin', 'cos', 'tan', 'sqrt', 'abs', 'ln', 'log', 'exp', 'floor', 'ceil'].map(label => ({ label, insert: `${label}(`, cursorOffset: label.length + 1 }))],
@@ -27,7 +27,7 @@ export const KEY_GROUPS: ReadonlyArray<readonly [string, readonly KeyboardKey[]]
     { label: 'tangent', insert: 'tangent(circle((0, 0), 1), (1, 0))' },
   ]],
 ] as const;
-export interface SymbolKeyboardOptions { onBeforeOpen?: () => void; onInsert: (symbol: string, cursorOffset?: number) => void; }
+export interface SymbolKeyboardOptions { onBeforeOpen?: () => void; onInsert: (symbol: string, cursorOffset?: number, wrapSelection?: 'fraction') => void; }
 export const isKeyboardShortcut = (event: Pick<KeyboardEvent, 'key' | 'ctrlKey' | 'metaKey'>): boolean =>
   event.key === '/' && (event.ctrlKey || event.metaKey);
 export function makeSymbolKeyboard({ onBeforeOpen, onInsert }: SymbolKeyboardOptions): HTMLElement {
@@ -36,7 +36,7 @@ export function makeSymbolKeyboard({ onBeforeOpen, onInsert }: SymbolKeyboardOpt
   trigger.setAttribute('aria-expanded', 'false'); trigger.setAttribute('aria-keyshortcuts', 'Control+/ Meta+/');
   const popover = document.createElement('div'); popover.className = 'symbol-keyboard-popover'; popover.hidden = true; popover.setAttribute('role', 'dialog'); popover.setAttribute('aria-label', 'Calculator keyboard');
   const title = document.createElement('div'); title.className = 'symbol-keyboard-title'; title.textContent = 'Calculator keyboard'; popover.append(title);
-  for (const [name, keys] of KEY_GROUPS) { const heading = document.createElement('div'); heading.className = 'symbol-keyboard-group'; heading.textContent = name; popover.append(heading); const row = document.createElement('div'); row.className = 'symbol-keyboard-row'; for (const key of keys) row.append(makeButton(key.label, `Insert ${key.label}`, () => onInsert(key.insert, key.cursorOffset), 'symbol-key')); popover.append(row); }
+  for (const [name, keys] of KEY_GROUPS) { const heading = document.createElement('div'); heading.className = 'symbol-keyboard-group'; heading.textContent = name; popover.append(heading); const row = document.createElement('div'); row.className = 'symbol-keyboard-row'; for (const key of keys) row.append(makeButton(key.label, `Insert ${key.label}`, () => onInsert(key.insert, key.cursorOffset, key.wrapSelection), 'symbol-key')); popover.append(row); }
   const close = makeButton('Close', 'Close symbol keyboard', () => { popover.hidden = true; trigger.setAttribute('aria-expanded', 'false'); trigger.focus(); }, 'symbol-keyboard-close'); popover.append(close);
   popover.addEventListener('keydown', event => { if (event.key === 'Escape') { close.click(); event.preventDefault(); } });
   document.addEventListener('keydown', event => {
