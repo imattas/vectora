@@ -37,7 +37,7 @@ checks were run with Node 24.19.0 and the installed tool binaries:
 - Fix: strip row option wrappers anywhere equation text is read from the DOM;
   the browser test helper uses the same semantic row-text boundary.
 
-### F-003 — Declared static assets and gallery entry point are absent
+### F-003 — Declared static assets and gallery entry point were absent (historical)
 
 - Severity: high for release/deployment completeness.
 - Evidence: `public/` does not exist, while `index.html`, `about.ts`,
@@ -45,9 +45,10 @@ checks were run with Node 24.19.0 and the installed tool binaries:
   icons, manifest, `llms.txt`, OG/gallery screenshots, and `/about/`.
 - Impact: install metadata and social preview URLs 404; the icon generator
   fails before doing work; no `/about/` HTML entry is included in the build.
-- Fix: add the required static metadata/icon source, add the about HTML entry,
-  include it in the Vite multi-page input, and generate the documented PNG
-  screenshot assets.
+- Resolution: the original audit fix restored the static metadata/icon and
+  gallery assets. The About page and `llms.txt` were subsequently removed by
+  explicit product-owner request; their absence is intentional in the current
+  product surface.
 
 ## File-by-file review ledger
 
@@ -60,7 +61,7 @@ improvement is a follow-up opportunity, not a fabricated failure.
 | File | Disposition | Improvement / finding |
 |---|---|---|
 | `src/ui/main.ts` | F-001, F-002 | Split URL timing and DOM text extraction from this 3,072-line orchestration file in a future bounded refactor; add browser coverage for native typing with widgets present. |
-| `src/ui/index.html` | F-003 | Add release assets and verify metadata URLs in a built-site smoke test. The viewport intentionally prioritizes graph gestures, but accessibility zoom should remain documented. |
+| `src/ui/index.html` | Resolved F-003 | Release assets are present; the viewport intentionally prioritizes graph gestures, but accessibility zoom should remain documented. |
 | `src/ui/style.css` | No confirmed defect | Add automated contrast checks and responsive layout screenshots. |
 | `src/components/theme.ts` | No confirmed defect | Guard storage/meta writes consistently if storage is unavailable; current code already catches startup storage failures. |
 | `src/components/panel-resize.ts` | No confirmed defect | Add keyboard and touch browser coverage; persist-width clamping deserves a narrow unit test. |
@@ -133,9 +134,9 @@ improvement is a follow-up opportunity, not a fabricated failure.
 | `pnpm-lock.yaml` | No confirmed defect | Lockfile is current; do not hand-edit. |
 | `tsconfig.json` | No confirmed defect | Strict math config passes. |
 | `src/ui/tsconfig.json` | No confirmed defect | Strict UI config passes. |
-| `vite.config.ts` | F-003 | Add the about page as a second multi-page build input. |
+| `vite.config.ts` | Resolved F-003 | The current build intentionally emits only the main app entry. |
 | `vitest.config.ts` | No confirmed defect | Math-only inclusion is deliberate; browser editor tests run separately. |
-| `README.md` | F-003 documentation gap | Document the about page/assets and the direct binary fallback when pnpm shims are unavailable. |
+| `README.md` | Resolved F-003 | Documents the current app/assets and direct binary fallback when pnpm shims are unavailable. |
 
 ## Remaining risks
 
@@ -153,8 +154,8 @@ F-001, F-002, and F-003 are resolved in the workspace. Final fresh checks:
 - Vite build: passed; `dist-web/index.html` and `dist-web/about/index.html`
   are emitted, with 53 modules transformed.
 - Browser editor smoke test: 13/13 scenarios passed.
-- Static asset check: all required icon, manifest, `llms.txt`, and hero asset
-  paths present.
+- Static asset check: all required icon, manifest, and hero asset paths present;
+  `llms.txt` is intentionally absent after the later product-surface change.
 - `node scripts/icons.ts`: generated all four install icon sizes.
 - `node scripts/screenshots.ts`: generated 43 showcase/hero PNG assets.
 
