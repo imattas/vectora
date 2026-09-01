@@ -3337,8 +3337,31 @@ function saveSvg() {
     const tag = line.closed ? 'polygon' : 'polyline';
     return `<${tag} points="${points.join(' ')}" fill="${line.fill ?? 'none'}" stroke="${escape(line.color)}" stroke-width="${line.width ?? 1.5}" stroke-linejoin="round" stroke-linecap="round"/>`;
   }).join('');
+  const vectorCurves = equations.filter(eq => !eq.hidden && !eq.error && eq.cls?.plot.type === 'implicit2d' && eq.parsed).map(eq => {
+    const parsed = eq.parsed!;
+    const residual = parsed.kind === 'eq' ? { kind: 'bin', op: '-', a: parsed.l, b: parsed.r } as Expr : parsed;
+    const pts: string[] = [];
+    const count = 640;
+    for (let i = 0; i < count; i++) {
+      const x = view.cx + (i / (count - 1) - 0.5) * width * view.upp * (window.devicePixelRatio || 1);
+      let y = view.cy;
+      let valid = false;
+      for (let step = 0; step < 12; step++) {
+        try {
+          const h = Math.max(view.upp * 0.5, 1e-7);
+          const f = evaluate(residual, { ...constEnv, x, y });
+          const fy = (evaluate(residual, { ...constEnv, x, y: y + h }) - f) / h;
+          if (!Number.isFinite(f) || !Number.isFinite(fy) || Math.abs(fy) < 1e-12) break;
+          y -= f / fy;
+          if (Math.abs(f) < Math.max(view.upp, 1e-6)) { valid = Number.isFinite(y); break; }
+        } catch { break; }
+      }
+      if (valid) pts.push(`${sx(x)},${sy(y)}`);
+    }
+    return pts.length > 1 ? `<polyline points="${pts.join(' ')}" fill="none" stroke="${escape(cssColor(theme.palette[eq.colorIndex]))}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>` : '';
+  }).join('');
   const vectorPoints = lastOverlayExtras.points.map(point => `<circle cx="${sx(point.x)}" cy="${sy(point.y)}" r="${point.r ?? 5}" fill="${escape(point.color)}"/>`).join('');
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><title>Vectora graph</title><desc>${escape(equations.map(e => e.text).filter(Boolean).join('; '))}</desc><image href="${image}" width="${width}" height="${height}" preserveAspectRatio="none"/>${vectorOverlay}${vectorPoints}</svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><title>Vectora graph</title><desc>${escape(equations.map(e => e.text).filter(Boolean).join('; '))}</desc><image href="${image}" width="${width}" height="${height}" preserveAspectRatio="none"/>${vectorCurves}${vectorOverlay}${vectorPoints}</svg>`;
   const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
   const link = document.createElement('a'); link.href = url; link.download = 'vectora-graph.svg'; link.style.display = 'none'; document.body.append(link); link.click();
   setTimeout(() => { URL.revokeObjectURL(url); link.remove(); }, 1000);
