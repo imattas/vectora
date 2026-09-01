@@ -204,6 +204,7 @@ let grabbable: Grabbable[] = [];
 /** Key of the point under the pointer (or being dragged): drawn with a ring. */
 let hotPoint: string | null = null;
 let geometryAnalysis: GeometryAnalysis = { objects: [], derived: [], byRow: new Map(), dependencies: new Map(), unavailable: [], readouts: new Map() };
+let lastOverlayExtras: Overlay2D = { points: [], polylines: [], bars: [] };
 let geometryHover: GeometryObject | null = null;
 let geometryHoverPoint: { x: number; y: number } | null = null;
 let curveHover: { eq: Equation; point: { x: number; y: number } } | null = null;
@@ -680,6 +681,7 @@ function render() {
       ineqs: [], bifs: [], scalars: [], complexes: [], curves: [],
     };
     const extras: Overlay2D = { points: [], polylines: [], bars: [] };
+    lastOverlayExtras = extras;
     // Spacing for any level-set family (custom grids, contour stacks): sample
     // |∇c| around the view to convert the target pixel gap into coordinate
     // units (π-based for angles).
@@ -3314,9 +3316,20 @@ function saveSvg() {
   composite.width = canvas.width; composite.height = canvas.height;
   const context = composite.getContext('2d');
   if (!context) return;
+  gl.finish();
   context.drawImage(canvas, 0, 0); context.drawImage(overlay, 0, 0);
   const image = composite.toDataURL('image/png');
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><title>Vectora graph</title><desc>${escape(equations.map(e => e.text).filter(Boolean).join('; '))}</desc><image href="${image}" xlink:href="${image}" width="${width}" height="${height}" preserveAspectRatio="none"/></svg>`;
+  const sx = (x: number) => (x - view.cx) / (view.upp * (window.devicePixelRatio || 1)) + width / 2;
+  const sy = (y: number) => height / 2 - (y - view.cy) / (view.upp * (window.devicePixelRatio || 1));
+  const vectorOverlay = lastOverlayExtras.polylines.map(line => {
+    const points = [];
+    for (let i = 0; i + 1 < line.pts.length; i += 2) points.push(`${sx(line.pts[i])},${sy(line.pts[i + 1])}`);
+    if (points.length < 2) return '';
+    const tag = line.closed ? 'polygon' : 'polyline';
+    return `<${tag} points="${points.join(' ')}" fill="${line.fill ?? 'none'}" stroke="${escape(line.color)}" stroke-width="${line.width ?? 1.5}" stroke-linejoin="round" stroke-linecap="round"/>`;
+  }).join('');
+  const vectorPoints = lastOverlayExtras.points.map(point => `<circle cx="${sx(point.x)}" cy="${sy(point.y)}" r="${point.r ?? 5}" fill="${escape(point.color)}"/>`).join('');
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><title>Vectora graph</title><desc>${escape(equations.map(e => e.text).filter(Boolean).join('; '))}</desc><image href="${image}" width="${width}" height="${height}" preserveAspectRatio="none"/>${vectorOverlay}${vectorPoints}</svg>`;
   const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
   const link = document.createElement('a'); link.href = url; link.download = 'vectora-graph.svg'; link.style.display = 'none'; document.body.append(link); link.click();
   setTimeout(() => { URL.revokeObjectURL(url); link.remove(); }, 1000);
