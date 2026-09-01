@@ -304,6 +304,10 @@ html, body {
 .math-numerator { padding: 0 3px 1px; border-bottom: 1px solid currentColor; }
 .math-denominator { padding: 1px 3px 0; }
 .math-preview sup { font-size: .72em; line-height: 0; vertical-align: .55em; }
+.math-root, .math-abs { display: inline-flex; align-items: center; vertical-align: middle; }
+.math-radical { font-size: 1.35em; line-height: .8; }
+.math-root .math-radicand { border-top: 1px solid currentColor; padding: 2px 2px 0 3px; }
+.math-abs > .math-radicand { margin: 0 2px; padding: 0 2px; border-left: 1px solid currentColor; border-right: 1px solid currentColor; }
 .eq-line.geometry-dependent { box-shadow: inset 2px 0 0 var(--accent); background: var(--eq-focus); }
 .eq-line.hidden-expression { opacity: .48; }
 .eq-color-widget { position: relative; display: block; margin-left: 28px; height: 0; vertical-align: top; }

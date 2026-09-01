@@ -14,6 +14,16 @@ const matchingParen = (text: string, open: number): number => {
   return -1;
 };
 
+const topLevelSlash = (text: string): number => {
+  let depth = 0;
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === '(') depth++;
+    else if (text[i] === ')') depth--;
+    else if (text[i] === '/' && depth === 0) return i;
+  }
+  return -1;
+};
+
 const atomStart = (text: string, end: number): number => {
   if (text[end] === ')') {
     let depth = 0;
@@ -29,7 +39,7 @@ const atomStart = (text: string, end: number): number => {
 
 function appendFormatted(parent: HTMLElement, text: string, fractions: boolean): void {
   if (fractions) {
-    const slash = text.indexOf('/');
+    const slash = topLevelSlash(text);
     if (slash >= 0) {
       const start = atomStart(text, slash - 1);
       let end = slash + 1;
@@ -49,6 +59,20 @@ function appendFormatted(parent: HTMLElement, text: string, fractions: boolean):
     }
   }
   for (let i = 0; i < text.length;) {
+    const functionName = text.startsWith('sqrt(', i) ? 'sqrt' : text.startsWith('abs(', i) ? 'abs' : null;
+    if (functionName) {
+      const open = i + functionName.length;
+      const close = matchingParen(text, open);
+      if (close >= 0) {
+        const body = document.createElement('span');
+        body.className = functionName === 'sqrt' ? 'math-root' : 'math-abs';
+        const content = document.createElement('span'); content.className = 'math-radicand';
+        appendFormatted(content, text.slice(open + 1, close), true);
+        if (functionName === 'sqrt') { const radical = document.createElement('span'); radical.className = 'math-radical'; radical.textContent = '√'; body.append(radical, content); }
+        else { const left = document.createElement('span'); left.textContent = '|'; const right = document.createElement('span'); right.textContent = '|'; body.append(left, content, right); }
+        parent.append(body); i = close + 1; continue;
+      }
+    }
     if (text[i] === '^') {
       let end = i + 1;
       if (text[end] === '(') { const close = matchingParen(text, end); if (close >= 0) end = close + 1; }
@@ -60,7 +84,8 @@ function appendFormatted(parent: HTMLElement, text: string, fractions: boolean):
       }
     }
     let end = i + 1;
-    while (end < text.length && text[end] !== '/' && text[end] !== '^') end++;
+    while (end < text.length && text[end] !== '/' && text[end] !== '^'
+      && !text.startsWith('sqrt(', end) && !text.startsWith('abs(', end)) end++;
     parent.append(document.createTextNode(formatPlainGlyphs(text.slice(i, end))));
     i = end;
   }
