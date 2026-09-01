@@ -217,7 +217,10 @@ export function analyzeGeometry(
           const q = object.points[(i + 1) % object.points.length];
           return sum + Math.hypot(q.x - p.x, q.y - p.y);
         }, 0);
-        readouts.set(row, `vertices ${object.points.length}, perimeter ${perimeter}`);
+        const area = Math.abs(object.points.reduce((sum, p, i) => {
+          const q = object.points[(i + 1) % object.points.length]; return sum + p.x * q.y - q.x * p.y;
+        }, 0) / 2);
+        readouts.set(row, `vertices ${object.points.length}, perimeter ${perimeter}, area ${area}`);
       }
       if (object.kind === 'point') derived.push(object);
     } catch (error) {

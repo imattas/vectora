@@ -22,3 +22,12 @@ export function saveWorkspace(name: string, equations: string[], view?: Workspac
   write([workspace, ...items.filter(item => item.id !== workspace.id)]); return workspace;
 }
 export function deleteWorkspace(id: string): void { write(read().filter(item => item.id !== id)); }
+export function exportWorkspaces(): string { return JSON.stringify({ version: 1, workspaces: listWorkspaces() }, null, 2); }
+export function importWorkspaces(serialized: string): number {
+  const parsed = JSON.parse(serialized) as { version?: number; workspaces?: Workspace[] };
+  if (parsed.version !== 1 || !Array.isArray(parsed.workspaces)) throw new Error('Invalid Vectora workspace backup.');
+  const incoming = parsed.workspaces.filter(item => item && typeof item.id === 'string' && typeof item.name === 'string' && Array.isArray(item.equations));
+  const merged = [...read()];
+  for (const item of incoming) { const index = merged.findIndex(existing => existing.id === item.id); if (index >= 0) merged[index] = item; else merged.push(item); }
+  write(merged); return incoming.length;
+}

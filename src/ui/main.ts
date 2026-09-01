@@ -80,7 +80,7 @@ import { initOnboarding } from '../components/onboarding.ts';
 import { makeSymbolKeyboard } from '../components/symbol-keyboard.ts';
 import { renderMathPreview } from '../components/math-display.ts';
 import { DEFAULT_GRAPH_SETTINGS, loadGraphSettings, saveGraphSettings, type GraphSettings } from '../components/graph-settings.ts';
-import { listWorkspaces, saveWorkspace } from '../state/workspaces.ts';
+import { exportWorkspaces, importWorkspaces, listWorkspaces, saveWorkspace } from '../state/workspaces.ts';
 
 interface Equation {
   id: number;
@@ -3237,6 +3237,17 @@ if (addActions) {
     const item = items.find(candidate => candidate.name === name); if (!item) return;
     equations.length = 0; item.equations.forEach(text => addEquation(text)); if (item.view) Object.assign(view, item.view);
     recompileAll(); renderAll(); saveUrl(); requestRender();
+  }, 'sidebar-action'));
+  addActions.append(makeButton('Backup', 'Export or import local workspaces', () => {
+    const action = window.prompt('Type export or import', 'export')?.toLowerCase();
+    if (action === 'export') {
+      const blob = new Blob([exportWorkspaces()], { type: 'application/json' }); const url = URL.createObjectURL(blob);
+      const link = document.createElement('a'); link.href = url; link.download = 'vectora-workspaces.json'; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } else if (action === 'import') {
+      const input = document.createElement('input'); input.type = 'file'; input.accept = 'application/json';
+      input.onchange = async () => { const file = input.files?.[0]; if (!file) return; try { importWorkspaces(await file.text()); window.alert('Workspace backup imported.'); } catch (error) { window.alert(error instanceof Error ? error.message : 'Could not import backup.'); } };
+      input.click();
+    }
   }, 'sidebar-action'));
   addActions.append(makeButton('Save SVG', 'Save the current graph as an SVG file', saveSvg, 'sidebar-action'));
   let savedSymbolRange: Range | null = null;

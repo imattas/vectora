@@ -70,6 +70,7 @@ describe('analyzeGeometry', () => {
     expect(result.byRow.get(3)?.[0]).toMatchObject({ kind: 'polygon', points: [{ x: 0, y: 0 }, { x: 2, y: 0 }, { x: 2, y: 2 }, { x: 0, y: 2 }] });
     expect(result.byRow.get(4)?.[0].kind).toBe('segment');
     expect(result.byRow.get(5)?.[0].kind).toBe('angle');
+    expect(result.readouts.get(2)).toContain('area 2');
   });
 
   it('reports unresolved geometry without stopping other rows', () => {
