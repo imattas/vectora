@@ -620,8 +620,8 @@ ${edgeBlocks}
 
 export class Renderer2D {
   private cache: ProgramCache;
-  constructor(private gl: WebGL2RenderingContext, private quad: { draw(): void }) {
-    this.cache = new ProgramCache(gl);
+  constructor(private gl: WebGL2RenderingContext, private quad: { draw(): void }, onShaderError?: (error: unknown) => void) {
+    this.cache = new ProgramCache(gl, onShaderError);
   }
 
   render(

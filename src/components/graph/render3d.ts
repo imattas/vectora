@@ -468,11 +468,15 @@ export class Renderer3D {
   private gridVao: WebGLVertexArrayObject;
   private gridIndexCount: number;
 
-  constructor(private gl: WebGL2RenderingContext, private quad: { draw(): void }) {
-    this.cache = new ProgramCache(gl);
-    this.axesProgram = compileProgram(gl, AXES_VERT, AXES_FRAG);
-    this.lineProgram = compileProgram(gl, LINE_VERT, LINE_FRAG);
-    this.pointProgram = compileProgram(gl, POINT_VERT, POINT_FRAG);
+  constructor(private gl: WebGL2RenderingContext, private quad: { draw(): void }, onShaderError?: (error: unknown) => void) {
+    this.cache = new ProgramCache(gl, onShaderError);
+    const compile = (vert: string, frag: string) => {
+      try { return compileProgram(gl, vert, frag); }
+      catch (error) { onShaderError?.(error); throw error; }
+    };
+    this.axesProgram = compile(AXES_VERT, AXES_FRAG);
+    this.lineProgram = compile(LINE_VERT, LINE_FRAG);
+    this.pointProgram = compile(POINT_VERT, POINT_FRAG);
     this.dynVao = gl.createVertexArray()!;
     this.dynBuf = gl.createBuffer()!;
     gl.bindVertexArray(this.dynVao);
@@ -482,7 +486,7 @@ export class Renderer3D {
     gl.bindVertexArray(null);
 
     // Dynamic indexed mesh (curve tubes): separate position/normal/uv buffers.
-    this.tubeProgram = compileProgram(gl, TUBE_VERT, TUBE_FRAG);
+    this.tubeProgram = compile(TUBE_VERT, TUBE_FRAG);
     this.tubeVao = gl.createVertexArray()!;
     this.tubePosBuf = gl.createBuffer()!;
     this.tubeNrmBuf = gl.createBuffer()!;

@@ -64,12 +64,21 @@ void main() { gl_Position = vec4(aPos, 0.0, 1.0); }
 /** Cache programs by source so editing one equation doesn't recompile others. */
 export class ProgramCache {
   private map = new Map<string, WebGLProgram>();
-  constructor(private gl: WebGL2RenderingContext) {}
+  private failed = new Set<string>();
+  constructor(private gl: WebGL2RenderingContext, private onError?: (error: unknown) => void) {}
   get(vert: string, frag: string): WebGLProgram {
     const key = vert + '\0' + frag;
     let p = this.map.get(key);
     if (!p) {
-      p = compileProgram(this.gl, vert, frag);
+      try {
+        p = compileProgram(this.gl, vert, frag);
+      } catch (error) {
+        if (!this.failed.has(key)) {
+          this.failed.add(key);
+          this.onError?.(error);
+        }
+        throw error;
+      }
       this.map.set(key, p);
       // Bound the cache; old programs are cheap to rebuild.
       if (this.map.size > 64) {

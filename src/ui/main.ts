@@ -246,8 +246,15 @@ canvas.addEventListener('webglcontextrestored', () => {
   location.reload();
 });
 const quad = fullscreenQuad(gl);
-const r2d = new Renderer2D(gl, quad);
-const r3d = new Renderer3D(gl, quad);
+const onShaderError = (error: unknown) => {
+  console.error(error);
+  if (renderStatus) {
+    renderStatus.textContent = 'Graphics shader error. Try simplifying the expression or reloading the graph.';
+    renderStatus.hidden = false;
+  }
+};
+const r2d = new Renderer2D(gl, quad, onShaderError);
+const r3d = new Renderer3D(gl, quad, onShaderError);
 const overlayCtx = overlay.getContext('2d')!;
 
 /** True until the canvas has been measured once and the opening zoom picked. */
