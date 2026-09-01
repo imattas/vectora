@@ -7,7 +7,9 @@ export function makeColorPicker(
   const box = document.createElement('div');
   box.className = 'color-picker'; box.hidden = true; box.contentEditable = 'false'; box.setAttribute('role', 'listbox');
   const closePicker = () => { box.hidden = true; onClose?.(); };
-  const wheel = document.createElement('div'); wheel.className = 'color-wheel'; wheel.title = 'Choose a hue'; wheel.setAttribute('aria-label', 'Color wheel');
+  const wheel = document.createElement('div'); wheel.className = 'color-wheel'; wheel.title = 'Choose a hue';
+  wheel.setAttribute('role', 'slider'); wheel.setAttribute('tabindex', '0'); wheel.setAttribute('aria-label', 'Color wheel');
+  wheel.setAttribute('aria-valuemin', '0'); wheel.setAttribute('aria-valuemax', String(Math.max(0, colors.length - 1)));
   const marker = document.createElement('span'); marker.className = 'color-wheel-marker';
   const choose = (event: PointerEvent, close = false) => {
     if (!colors.length) return;
@@ -15,7 +17,7 @@ export function makeColorPicker(
     if (!(rect.width > 0) || !(rect.height > 0)) return;
     const hue = (Math.atan2(event.clientY - rect.top - rect.height / 2, event.clientX - rect.left - rect.width / 2) * 180 / Math.PI + 360) % 360;
     const index = Math.min(colors.length - 1, Math.floor(hue / 360 * colors.length));
-    setActive(index); onSelect(index); marker.style.transform = `rotate(${hue}deg) translateY(-${rect.width * .38}px)`;
+    setActive(index); onSelect(index); setMarker(hue, rect.width);
     if (close) closePicker();
   };
   wheel.addEventListener('pointerdown', event => { try { wheel.setPointerCapture(event.pointerId); } catch {} choose(event); event.preventDefault(); });
@@ -29,8 +31,23 @@ export function makeColorPicker(
     if (!colors.length) return;
     activeIndex = (index + colors.length) % colors.length;
     colors.forEach((_, i) => swatches.children[i]?.setAttribute('aria-selected', String(i === activeIndex)));
+    wheel.setAttribute('aria-valuenow', String(activeIndex));
     if (focus) (swatches.children[activeIndex] as HTMLButtonElement | undefined)?.focus();
   };
+  const setMarker = (hue: number, width = wheel.clientWidth || 112) => {
+    marker.style.transform = `rotate(${hue}deg) translateY(-${width * .38}px)`;
+  };
+  setActive(activeIndex);
+  setMarker(colors.length ? activeIndex / colors.length * 360 : 0);
+  wheel.addEventListener('keydown', event => {
+    if (!colors.length) return;
+    const delta = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1
+      : event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 : 0;
+    const next = event.key === 'Home' ? 0 : event.key === 'End' ? colors.length - 1 : activeIndex + delta;
+    if (delta || event.key === 'Home' || event.key === 'End') {
+      setActive(next); onSelect(activeIndex); setMarker(activeIndex / colors.length * 360); event.preventDefault();
+    }
+  });
   colors.forEach((color, index) => {
     const swatch = document.createElement('button');
     swatch.type = 'button'; swatch.className = 'color-swatch'; swatch.style.background = color;
