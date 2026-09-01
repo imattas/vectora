@@ -21,7 +21,11 @@ export const KEY_GROUPS: ReadonlyArray<readonly [string, readonly KeyboardKey[]]
     { label: '∫', insert: 'int[0..1] ' }, { label: 'Σ', insert: 'sum(n=1..10, )', cursorOffset: 13 },
     { label: 'Π', insert: 'prod(n=1..10, )', cursorOffset: 14 },
   ]],
-  ['Geometry', ['θ', 'φ', 'α', 'β', 'γ', 'Δ'].map(label => ({ label, insert: label }))],
+  ['Geometry', [
+    ...['θ', 'φ', 'α', 'β', 'γ', 'Δ'].map(label => ({ label, insert: label })),
+    { label: '⊥ bisector', insert: 'perpendicularBisector((0, 0), (1, 0))' },
+    { label: 'tangent', insert: 'tangent(circle((0, 0), 1), (1, 0))' },
+  ]],
 ] as const;
 export interface SymbolKeyboardOptions { onBeforeOpen?: () => void; onInsert: (symbol: string, cursorOffset?: number) => void; }
 export const isKeyboardShortcut = (event: Pick<KeyboardEvent, 'key' | 'ctrlKey' | 'metaKey'>): boolean =>

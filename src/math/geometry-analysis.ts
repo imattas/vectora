@@ -15,7 +15,7 @@ export interface GeometryAnalysis {
   readouts: Map<number, string>;
 }
 
-export const ANALYSIS_ONLY_FORMS = new Set(['ray', 'angle', 'intersection', 'distance', 'midpoint', 'parallel', 'perpendicular', 'projection', 'circle', 'polygon', 'square']);
+export const ANALYSIS_ONLY_FORMS = new Set(['ray', 'angle', 'intersection', 'distance', 'midpoint', 'parallel', 'perpendicular', 'projection', 'circle', 'polygon', 'square', 'perpendicularBisector', 'tangent']);
 
 type Value = Point2 | GeometryObject;
 type LineLike = Extract<GeometryObject, { kind: 'line' | 'ray' | 'segment' }>;
@@ -152,6 +152,31 @@ export function analyzeGeometry(
           ? { x: through.x + d.x, y: through.y + d.y }
           : { x: through.x - d.y, y: through.y + d.x };
         return line(through, end);
+      }
+      if (e.name === 'perpendicularBisector') {
+        const args = pointArgs(e.args);
+        if (args.length !== 2) throw new Error('perpendicularBisector takes two points.');
+        const a = resolvePoint(args[0]); const b = resolvePoint(args[1]);
+        const dx = b.x - a.x, dy = b.y - a.y; const length = Math.hypot(dx, dy);
+        if (length <= 1e-12) throw new Error('Cannot bisect two identical points.');
+        const mid = midpoint(a, b); if (!mid.ok) throw new Error(mid.reason);
+        return line(mid.value, { x: mid.value.x - dy, y: mid.value.y + dx });
+      }
+      if (e.name === 'tangent') {
+        // Calls flatten tuple arguments, so tangent(circle((0,0), 2), (2,0))
+        // arrives as tangent(0, 0, 2, 2, 0). Rebuild the circle and point.
+        let shapeExpr: Expr; let pointExprs: Expr[];
+        if (e.args[0]?.kind === 'call') { shapeExpr = e.args[0]; pointExprs = e.args.slice(1); }
+        else if (e.args.length >= 5) { shapeExpr = { kind: 'call', name: 'circle', args: e.args.slice(0, 3) }; pointExprs = e.args.slice(3); }
+        else throw new Error('tangent takes a circle and a point on it.');
+        const shape = resolveValue(shapeExpr);
+        if (!shape || isPoint(shape) || shape.kind !== 'circle') throw new Error('tangent needs a circle and a point on it.');
+        const pointArgsList = pointArgs(pointExprs);
+        if (pointArgsList.length !== 1) throw new Error('tangent takes a circle and a point on it.');
+        const p = resolvePoint(pointArgsList[0]);
+        const dx = p.x - shape.center.x, dy = p.y - shape.center.y;
+        if (Math.abs(Math.hypot(dx, dy) - shape.radius) > 1e-6 * Math.max(1, shape.radius)) throw new Error('The tangent point must lie on the circle.');
+        return line(p, { x: p.x - dy, y: p.y + dx });
       }
     }
     return resolvePoint(e);

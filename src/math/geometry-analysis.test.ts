@@ -82,6 +82,16 @@ describe('analyzeGeometry', () => {
     expect(result.readouts.get(2)).toContain('area 2');
   });
 
+  it('supports perpendicular bisectors and circle tangents', () => {
+    const result = analyzeGeometry([
+      { row: 0, text: 'perpendicularBisector((0, 0), (4, 0))' },
+      { row: 1, text: 'tangent(circle((0, 0), 2), (2, 0))' },
+    ]);
+    expect(result.unavailable).toEqual([]);
+    expect(result.byRow.get(0)?.[0]).toMatchObject({ kind: 'line', a: { x: 2, y: 0 }, b: { x: 2, y: 4 } });
+    expect(result.byRow.get(1)?.[0]).toMatchObject({ kind: 'line', a: { x: 2, y: 0 }, b: { x: 2, y: 2 } });
+  });
+
   it('reports unresolved geometry without stopping other rows', () => {
     const result = analyzeGeometry([{ row: 0, text: 'line(A, Missing)' }, { row: 1, text: 'distance((0, 0), (3, 4))' }]);
     expect(result.unavailable[0].reason).toMatch(/defined point/);

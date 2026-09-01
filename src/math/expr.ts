@@ -42,7 +42,7 @@ export const FUNCTIONS = new Set([
   // by lowerGeom before anything evaluates or compiles them.
   'dot', 'cross', 'perp', 'midpoint', 'unit',
   'segment', 'line', 'ray', 'polygon', 'square', 'circle', 'angle',
-  'intersection', 'distance', 'parallel', 'perpendicular', 'projection',
+  'intersection', 'distance', 'parallel', 'perpendicular', 'projection', 'perpendicularBisector', 'tangent',
   // Small-matrix helpers (det, trace, matvec, linear solve), also lowered
   // symbolically — Cramer's rule for 2×2 and 3×3 (see mat.ts).
   'det', 'trace', 'solve',
