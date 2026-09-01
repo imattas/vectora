@@ -34,6 +34,16 @@ describe('analyzeGeometry', () => {
     expect(result.readouts.get(-1)).toBe('90°');
   });
 
+  it('derives an angle from crossing linear graph equations', () => {
+    const result = analyzeGeometry([
+      { row: 0, text: 'y = x + 2' },
+      { row: 1, text: 'y = 1' },
+    ]);
+    expect(result.derived.filter(object => object.kind === 'angle')).toHaveLength(1);
+    expect(result.readouts.get(-1)).toBe('45°');
+    expect(result.unavailable).toEqual([]);
+  });
+
   it('normalizes a flattened literal center for circles', () => {
     const result = analyzeGeometry([{ row: 0, text: 'circle((0, 0), 2)' }]);
     expect(result.unavailable).toEqual([]);

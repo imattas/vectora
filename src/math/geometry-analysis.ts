@@ -17,9 +17,13 @@ export interface GeometryAnalysis {
 export const ANALYSIS_ONLY_FORMS = new Set(['ray', 'angle', 'intersection', 'distance', 'midpoint', 'parallel', 'perpendicular', 'projection', 'circle', 'polygon', 'square']);
 
 type Value = Point2 | GeometryObject;
+type LineLike = Extract<GeometryObject, { kind: 'line' | 'ray' | 'segment' }>;
 const isPoint = (v: Value): v is Point2 => 'x' in v && 'y' in v;
 const isLine = (v: Value): v is Extract<GeometryObject, { kind: 'line' | 'ray' | 'segment' }> =>
   !isPoint(v) && (v.kind === 'line' || v.kind === 'ray' || v.kind === 'segment');
+
+interface LinearForm { x: number; y: number; c: number }
+const addLinear = (a: LinearForm, b: LinearForm, sign = 1): LinearForm => ({ x: a.x + sign * b.x, y: a.y + sign * b.y, c: a.c + sign * b.c });
 
 const scalar = (e: Expr, env: ReadonlyMap<string, number>): number => {
   const vars: Record<string, number> = {};
@@ -224,8 +228,47 @@ export function analyzeGeometry(
   // an explicit angle(...) row. One representative (smaller) angle per pair
   // keeps a busy diagram readable while still showing the relationship.
   const lineObjects = objects.filter(isLine);
-  for (let i = 0; i < lineObjects.length; i++) for (let j = i + 1; j < lineObjects.length; j++) {
-    const a = lineObjects[i]; const b = lineObjects[j];
+  const implicitLines: LineLike[] = [];
+  const linearize = (e: Expr): LinearForm | null => {
+    if (e.kind === 'var') return e.name === 'x' ? { x: 1, y: 0, c: 0 } : e.name === 'y' ? { x: 0, y: 1, c: 0 } : null;
+    if (e.kind === 'num') return { x: 0, y: 0, c: e.value };
+    if (e.kind === 'neg') { const a = linearize(e.a); return a && { x: -a.x, y: -a.y, c: -a.c }; }
+    if (e.kind !== 'bin') {
+      try { return { x: 0, y: 0, c: scalar(e, env) }; } catch { return null; }
+    }
+    const a = linearize(e.a); const b = linearize(e.b);
+    if (!a || !b) return null;
+    if (e.op === '+') return addLinear(a, b);
+    if (e.op === '-') return addLinear(a, b, -1);
+    if (e.op === '*' || e.op === '/') {
+      const aConstant = a.x === 0 && a.y === 0;
+      const bConstant = b.x === 0 && b.y === 0;
+      if (e.op === '*' && aConstant) return { x: a.c * b.x, y: a.c * b.y, c: a.c * b.c };
+      if (e.op === '*' && bConstant) return { x: b.c * a.x, y: b.c * a.y, c: b.c * a.c };
+      if (e.op === '/' && bConstant && Math.abs(b.c) > 1e-12) return { x: a.x / b.c, y: a.y / b.c, c: a.c / b.c };
+    }
+    return null;
+  };
+  for (const { text } of rows) {
+    try {
+      const parsed = parseExpr(text.trim());
+      if (parsed.kind !== 'eq') continue;
+      const left = linearize(parsed.l); const right = linearize(parsed.r);
+      if (!left || !right) continue;
+      const form = addLinear(left, right, -1);
+      if (Math.hypot(form.x, form.y) <= 1e-12) continue;
+      const p0 = Math.abs(form.y) > 1e-12
+        ? { x: 0, y: -form.c / form.y }
+        : { x: -form.c / form.x, y: 0 };
+      const p1 = Math.abs(form.y) > 1e-12
+        ? { x: 1, y: -(form.x + form.c) / form.y }
+        : { x: p0.x, y: 1 };
+      implicitLines.push(line(p0, p1, 'implicit-line'));
+    } catch { /* nonlinear or non-graph definitions are not line candidates */ }
+  }
+  const angleCandidates = [...lineObjects, ...implicitLines];
+  for (let i = 0; i < angleCandidates.length; i++) for (let j = i + 1; j < angleCandidates.length; j++) {
+    const a = angleCandidates[i]; const b = angleCandidates[j];
     const crossing = intersect(a, b);
     if (crossing.kind !== 'point') continue;
     const da = sub(a.b, a.a); const db = sub(b.b, b.a);
