@@ -23,7 +23,10 @@ self.addEventListener('fetch', event => {
     return;
   }
   event.respondWith(fetch(event.request).then(response => {
-    if (response.ok && response.type === 'basic') { const copy = response.clone(); caches.open(CACHE).then(cache => cache.put(event.request, copy)); }
+    if (response.ok && response.type === 'basic') {
+      const copy = response.clone();
+      event.waitUntil(caches.open(CACHE).then(cache => cache.put(event.request, copy)).catch(() => {}));
+    }
     return response;
   }).catch(() => caches.match(event.request).then(cached => cached ?? Response.error())));
 });

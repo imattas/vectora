@@ -22,6 +22,8 @@ pnpm web          # start the Vite dev server
 pnpm test         # run the math and component test suite
 pnpm typecheck    # check math, components, and UI
 pnpm web:build    # build the static site into dist-web/
+npm run build     # equivalent production build for standard tooling
+npm run test:editor # run the browser acceptance checks
 ```
 
 The production build includes the install manifest and public assets adapted
