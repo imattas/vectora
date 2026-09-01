@@ -349,6 +349,23 @@ await scenario('first-run onboarding can be skipped and replayed', async () => {
   check('completed onboarding closes the modal', await page.locator('.onboarding-dialog').isHidden());
 });
 
+await scenario('help search and theme controls work', async () => {
+  await page.goto(ORIGIN + '/help/');
+  await page.waitForSelector('#help-search');
+  await page.locator('#help-search').fill('tangent');
+  const filtered = await page.evaluate(() => ({
+    visible: [...document.querySelectorAll<HTMLElement>('.help-section')].filter(section => !section.hidden).map(section => section.id),
+    status: document.querySelector('#search-status')?.textContent,
+  }));
+  await page.locator('#help-theme-toggle').click();
+  const themed = await page.evaluate(() => ({
+    theme: document.documentElement.dataset.theme,
+    label: document.querySelector('#help-theme-toggle')?.getAttribute('aria-label'),
+  }));
+  check('Help search filters sections and announces the result', filtered.visible.includes('geometry') && filtered.status === '1 matching help section.', JSON.stringify(filtered));
+  check('Help theme control updates the document theme', themed.theme === 'dark' && themed.label === 'Switch to light mode', JSON.stringify(themed));
+});
+
 await browser.close();
 server.kill();
 

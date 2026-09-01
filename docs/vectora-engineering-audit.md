@@ -76,7 +76,7 @@ The current implementation has repeatedly passed:
 vitest: 38 files, 573 tests passed
 npm run typecheck: passed
 npm run web:build: passed
-npm run test:editor: 20 scenarios passed
+npm run test:editor: 24 scenarios passed
 git diff --check: passed
 http://localhost:8080/: HTTP 200
 GitHub Pages workflow: successful on prior pushed revisions
