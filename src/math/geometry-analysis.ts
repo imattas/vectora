@@ -1,5 +1,5 @@
 import { parseExpr, type Expr, evaluate } from './expr.ts';
-import { angle, circle, line, point, polygon, ray, segment, type GeometryObject, type Point2 } from './geometry.ts';
+import { angle, circle, line, point, polygon, ray, segment, sub, type GeometryObject, type Point2 } from './geometry.ts';
 import { intersect } from './intersections.ts';
 import { distance as pointDistance, measureAngle, midpoint, projection } from './measurements.ts';
 
@@ -219,6 +219,25 @@ export function analyzeGeometry(
     } catch (error) {
       unavailable.push({ row, reason: error instanceof Error ? error.message : String(error) });
     }
+  }
+  // Give intersections a useful visual cue even when the user did not write
+  // an explicit angle(...) row. One representative (smaller) angle per pair
+  // keeps a busy diagram readable while still showing the relationship.
+  const lineObjects = objects.filter(isLine);
+  for (let i = 0; i < lineObjects.length; i++) for (let j = i + 1; j < lineObjects.length; j++) {
+    const a = lineObjects[i]; const b = lineObjects[j];
+    const crossing = intersect(a, b);
+    if (crossing.kind !== 'point') continue;
+    const da = sub(a.b, a.a); const db = sub(b.b, b.a);
+    const la = Math.hypot(da.x, da.y); const lb = Math.hypot(db.x, db.y);
+    if (la <= 1e-12 || lb <= 1e-12) continue;
+    const start = { x: crossing.point.x + da.x / la, y: crossing.point.y + da.y / la };
+    const end = { x: crossing.point.x + db.x / lb, y: crossing.point.y + db.y / lb };
+    const automatic = angle(start, crossing.point, end, false, 'intersection-angle');
+    const measurement = measureAngle(automatic);
+    if (!measurement.ok) continue;
+    derived.push(automatic);
+    readouts.set(-1, `${measurement.value.degrees}°`);
   }
   return { objects, derived, byRow, dependencies, unavailable, readouts };
 }

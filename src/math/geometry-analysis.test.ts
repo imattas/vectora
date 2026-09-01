@@ -23,6 +23,17 @@ describe('analyzeGeometry', () => {
     expect(result.byRow.get(5)?.[0].kind).toBe('angle');
   });
 
+  it('automatically derives a measured angle where two line-like objects cross', () => {
+    const result = analyzeGeometry([
+      { row: 0, text: 'line((0, 0), (4, 4))' },
+      { row: 1, text: 'line((0, 4), (4, 0))' },
+    ]);
+    const angles = result.derived.filter(object => object.kind === 'angle');
+    expect(angles).toHaveLength(1);
+    expect(angles[0]).toMatchObject({ label: 'intersection-angle' });
+    expect(result.readouts.get(-1)).toBe('90°');
+  });
+
   it('normalizes a flattened literal center for circles', () => {
     const result = analyzeGeometry([{ row: 0, text: 'circle((0, 0), 2)' }]);
     expect(result.unavailable).toEqual([]);

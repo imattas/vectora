@@ -18,7 +18,7 @@ export function renderMeasurementPanel(container: HTMLElement, analysis: Geometr
     item.className = 'geometry-readout';
     const objects = analysis.byRow.get(row) ?? [];
     const rawLabel = objects[0]?.label?.replace(/\d+$/, '');
-    const label = rawLabel ? rawLabel.charAt(0).toUpperCase() + rawLabel.slice(1) : `Measurement ${row + 1}`;
+    const label = row < 0 ? 'Intersection angle' : rawLabel ? rawLabel.charAt(0).toUpperCase() + rawLabel.slice(1) : `Measurement ${row + 1}`;
     item.textContent = `${label}: ${value}`;
     container.append(item);
   }

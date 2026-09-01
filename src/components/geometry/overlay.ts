@@ -1,5 +1,6 @@
 import type { GeometryAnalysis } from '../../math/geometry-analysis.ts';
 import type { GeometryObject, Point2 } from '../../math/geometry.ts';
+import { measureAngle } from '../../math/measurements.ts';
 import { angleArc } from './angle-arc.ts';
 
 export interface GeometryOverlayOptions {
@@ -69,6 +70,14 @@ export function drawGeometryOverlay(ctx: CanvasRenderingContext2D, view: { cx: n
         // antialiasing and fractional zoom, even when the source ray is thin.
         for (const a of [start, end]) {
           ctx.beginPath(); ctx.arc(c.x + radius * Math.cos(a), c.y + radius * Math.sin(a), 1.5, 0, Math.PI * 2); ctx.fillStyle = ctx.strokeStyle; ctx.fill();
+        }
+        if (object.label === 'intersection-angle') {
+          const measurement = measureAngle(object);
+          const middle = (start + end) / 2;
+          if (measurement.ok) {
+            ctx.font = '11px ui-sans-serif, system-ui'; ctx.fillStyle = ctx.strokeStyle;
+            ctx.fillText(`${measurement.value.degrees}°`, c.x + (radius + 7) * Math.cos(middle), c.y + (radius + 7) * Math.sin(middle));
+          }
         }
       }
     }
