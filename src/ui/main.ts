@@ -80,6 +80,7 @@ import { initOnboarding } from '../components/onboarding.ts';
 import { makeSymbolKeyboard } from '../components/symbol-keyboard.ts';
 import { renderMathPreview } from '../components/math-display.ts';
 import { DEFAULT_GRAPH_SETTINGS, loadGraphSettings, saveGraphSettings, type GraphSettings } from '../components/graph-settings.ts';
+import { listWorkspaces, saveWorkspace } from '../state/workspaces.ts';
 
 interface Equation {
   id: number;
@@ -3226,6 +3227,17 @@ if (addActions) {
   const index = equations.length - 1; const last = lineEls()[index]; if (last) { last.focus(); setCaret(index, 0); }
   }));
   addActions.append(makeButton('Clear', 'Clear all expressions', clearWorkspace, 'sidebar-action'));
+  addActions.append(makeButton('Save', 'Save a named local workspace', () => {
+    const name = window.prompt('Workspace name', `Graph ${listWorkspaces().length + 1}`)?.trim();
+    if (name) saveWorkspace(name, equations.map(eq => eq.text), { cx: view.cx, cy: view.cy, upp: view.upp });
+  }, 'sidebar-action'));
+  addActions.append(makeButton('Open', 'Open a saved local workspace', () => {
+    const items = listWorkspaces(); if (!items.length) { window.alert('No saved workspaces yet.'); return; }
+    const name = window.prompt(`Open workspace:\n${items.map(item => item.name).join('\n')}`, items[0].name)?.trim();
+    const item = items.find(candidate => candidate.name === name); if (!item) return;
+    equations.length = 0; item.equations.forEach(text => addEquation(text)); if (item.view) Object.assign(view, item.view);
+    recompileAll(); renderAll(); saveUrl(); requestRender();
+  }, 'sidebar-action'));
   addActions.append(makeButton('Save SVG', 'Save the current graph as an SVG file', saveSvg, 'sidebar-action'));
   let savedSymbolRange: Range | null = null;
   const keyboardDock = document.getElementById('keyboard-dock');
