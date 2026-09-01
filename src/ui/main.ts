@@ -3023,6 +3023,7 @@ document.getElementById('home-view')?.addEventListener('click', resetGraphView);
 // --- theme ---
 
 const themeToggle = document.getElementById('theme-toggle') as HTMLButtonElement | null;
+const brandLogo = document.querySelector<HTMLImageElement>('.brand-logo');
 function syncThemeToggle() {
   if (!themeToggle) return;
   const icon = themeToggle.querySelector('span');
@@ -3030,6 +3031,7 @@ function syncThemeToggle() {
   const next = theme.dark ? 'light' : 'dark';
   themeToggle.setAttribute('aria-label', `Switch to ${next} mode`);
   themeToggle.title = `Switch to ${next} mode`;
+  if (brandLogo) brandLogo.src = theme.dark ? '/icon.svg' : '/icon-light.svg';
 }
 initTheme();
 // Color dots and every WebGL pass read `theme` live; redraw both on a switch.
