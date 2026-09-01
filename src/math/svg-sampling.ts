@@ -23,10 +23,13 @@ const residual = (expr: Expr, x: number, y: number): number => {
  * discontinuity. This is intended for export-time work, not animation.
  */
 function sampleOrientedContours(expr: Expr, bounds: SampleBounds, options: SampleOptions, vertical: boolean): Point[][] {
-  const columns = Math.max(8, Math.floor(options.columns ?? 640));
-  const seeds = Math.max(3, Math.floor(options.seeds ?? 10));
-  const iterations = Math.max(4, Math.floor(options.iterations ?? 16));
-  const tolerance = options.tolerance ?? 1e-5;
+  const boundedInt = (value: number | undefined, fallback: number, min: number, max: number): number =>
+    Number.isFinite(value) ? Math.min(max, Math.max(min, Math.floor(value!))) : fallback;
+  const columns = boundedInt(options.columns, 640, 8, 4096);
+  const seeds = boundedInt(options.seeds, 10, 3, 64);
+  const iterations = boundedInt(options.iterations, 16, 4, 64);
+  const tolerance = Number.isFinite(options.tolerance) && options.tolerance! >= 0 ? options.tolerance! : 1e-5;
+  if (![bounds.xlo, bounds.xhi, bounds.ylo, bounds.yhi].every(Number.isFinite)) return [];
   const primaryLo = vertical ? bounds.ylo : bounds.xlo;
   const primaryHi = vertical ? bounds.yhi : bounds.xhi;
   const rootLo = vertical ? bounds.xlo : bounds.ylo;

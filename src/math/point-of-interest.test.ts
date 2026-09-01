@@ -19,6 +19,13 @@ describe('findCurveIntersections', () => {
   it('does not report parallel nonintersecting curves', () => {
     expect(findCurveIntersections(parseExpr('y = x + 1'), parseExpr('y = x + 2'), bounds)).toEqual([]);
   });
+
+  it('rejects overflowing bounds and normalizes malformed budgets', () => {
+    expect(findCurveIntersections(parseExpr('y = x'), parseExpr('y = x + 1'), {
+      xlo: -Number.MAX_VALUE, xhi: Number.MAX_VALUE, ylo: -1, yhi: 1,
+    }, Infinity)).toEqual([]);
+    expect(findCurveIntersections(parseExpr('y = x'), parseExpr('y = x + 1'), bounds, -1)).toEqual([]);
+  });
   it('finds a tangent intersection without a sign change', () => {
     const points = findCurveIntersections(parseExpr('y = x^2'), parseExpr('y = 0'), bounds);
     expect(points.some(point => Math.hypot(point.x, point.y) < 1e-5)).toBe(true);

@@ -1,7 +1,8 @@
 export type SheetState = 'open' | 'collapsed';
 
 export function swipeState(deltaY: number, threshold = 30): SheetState | null {
-  if (!Number.isFinite(deltaY) || Math.abs(deltaY) < threshold) return null;
+  const limit = Number.isFinite(threshold) && threshold >= 0 ? threshold : 30;
+  if (!Number.isFinite(deltaY) || Math.abs(deltaY) < limit) return null;
   return deltaY > 0 ? 'collapsed' : 'open';
 }
 

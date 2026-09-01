@@ -47,12 +47,21 @@ const atomStart = (text: string, end: number): number => {
   return i + 1;
 };
 
+const MAX_FORMAT_DEPTH = 128;
+
 function mark(node: HTMLElement, start: number, end: number): HTMLElement {
   node.dataset.sourceStart = String(start); node.dataset.sourceEnd = String(end);
   return node;
 }
 
-function appendFormatted(parent: HTMLElement, text: string, fractions: boolean, sourceOffset = 0): void {
+function appendFormatted(parent: HTMLElement, text: string, fractions: boolean, sourceOffset = 0, depth = 0): void {
+  if (depth >= MAX_FORMAT_DEPTH) {
+    const fallback = document.createElement('span');
+    mark(fallback, sourceOffset, sourceOffset + text.length);
+    fallback.textContent = formatPlainGlyphs(text);
+    parent.append(fallback);
+    return;
+  }
   if (fractions) {
     const slash = topLevelSlash(text);
     if (slash >= 0) {
@@ -61,7 +70,7 @@ function appendFormatted(parent: HTMLElement, text: string, fractions: boolean, 
       if (text[end] === '(') { const close = matchingParen(text, end); if (close >= 0) end = close + 1; }
       else while (end < text.length && /[A-Za-z0-9_.]/.test(text[end])) end++;
       if (start < slash && end > slash + 1) {
-        appendFormatted(parent, text.slice(0, start), false, sourceOffset);
+        appendFormatted(parent, text.slice(0, start), false, sourceOffset, depth + 1);
         const fraction = document.createElement('span'); fraction.className = 'math-fraction';
         const numerator = document.createElement('span'); numerator.className = 'math-numerator';
         const denominator = document.createElement('span'); denominator.className = 'math-denominator';
@@ -69,10 +78,10 @@ function appendFormatted(parent: HTMLElement, text: string, fractions: boolean, 
         const denominatorText = text.slice(slash + 1, end).replace(/^\((.*)\)$/, '$1');
         mark(numerator, sourceOffset + start, sourceOffset + slash);
         mark(denominator, sourceOffset + slash + 1, sourceOffset + end);
-        appendFormatted(numerator, numeratorText, false, sourceOffset + start + (text[start] === '(' ? 1 : 0));
-        appendFormatted(denominator, denominatorText, false, sourceOffset + slash + 1 + (text[slash + 1] === '(' ? 1 : 0));
+        appendFormatted(numerator, numeratorText, false, sourceOffset + start + (text[start] === '(' ? 1 : 0), depth + 1);
+        appendFormatted(denominator, denominatorText, false, sourceOffset + slash + 1 + (text[slash + 1] === '(' ? 1 : 0), depth + 1);
         fraction.append(numerator, denominator); parent.append(fraction);
-        appendFormatted(parent, text.slice(end), true, sourceOffset + end);
+        appendFormatted(parent, text.slice(end), true, sourceOffset + end, depth + 1);
         return;
       }
     }
@@ -86,7 +95,7 @@ function appendFormatted(parent: HTMLElement, text: string, fractions: boolean, 
         const body = document.createElement('span');
         body.className = functionName === 'abs' ? 'math-abs' : 'math-root'; mark(body, sourceOffset + i, sourceOffset + close + 1);
         const content = document.createElement('span'); content.className = 'math-radicand'; mark(content, sourceOffset + open + 1, sourceOffset + close);
-        appendFormatted(content, text.slice(open + 1, close), true, sourceOffset + open + 1);
+        appendFormatted(content, text.slice(open + 1, close), true, sourceOffset + open + 1, depth + 1);
         if (functionName === 'sqrt' || functionName === 'cbrt') { const radical = document.createElement('span'); radical.className = 'math-radical'; radical.textContent = functionName === 'cbrt' ? '³√' : '√'; body.append(radical, content); }
         else { const left = document.createElement('span'); left.textContent = '|'; const right = document.createElement('span'); right.textContent = '|'; body.append(left, content, right); }
         parent.append(body); i = close + 1; continue;
@@ -99,10 +108,10 @@ function appendFormatted(parent: HTMLElement, text: string, fractions: boolean, 
       if (close >= 0 && comma >= 0) {
         const body = document.createElement('span'); body.className = 'math-root'; mark(body, sourceOffset + i, sourceOffset + close + 1);
         const index = document.createElement('sup'); index.className = 'math-root-index'; mark(index, sourceOffset + open + 1, sourceOffset + comma);
-        appendFormatted(index, text.slice(open + 1, comma), false, sourceOffset + open + 1);
+        appendFormatted(index, text.slice(open + 1, comma), false, sourceOffset + open + 1, depth + 1);
         const radical = document.createElement('span'); radical.className = 'math-radical'; radical.textContent = '√';
         const content = document.createElement('span'); content.className = 'math-radicand'; mark(content, sourceOffset + comma + 1, sourceOffset + close);
-        appendFormatted(content, text.slice(comma + 1, close), true, sourceOffset + comma + 1);
+        appendFormatted(content, text.slice(comma + 1, close), true, sourceOffset + comma + 1, depth + 1);
         body.append(index, radical, content); parent.append(body); i = close + 1; continue;
       }
     }
@@ -113,7 +122,7 @@ function appendFormatted(parent: HTMLElement, text: string, fractions: boolean, 
       if (end > i + 1) {
         const exponent = document.createElement('sup');
         mark(exponent, sourceOffset + i + 1, sourceOffset + end);
-        appendFormatted(exponent, text.slice(i + 1, end).replace(/^\((.*)\)$/, '$1'), false, sourceOffset + i + 1 + (text[i + 1] === '(' ? 1 : 0));
+        appendFormatted(exponent, text.slice(i + 1, end).replace(/^\((.*)\)$/, '$1'), false, sourceOffset + i + 1 + (text[i + 1] === '(' ? 1 : 0), depth + 1);
         parent.append(exponent); i = end; continue;
       }
     }

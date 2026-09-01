@@ -113,7 +113,7 @@ export function parseViewRow(text: string, env: Record<string, number>): ViewSpe
       if (!range) throw new Error(usage);
       const lo = num(range[0], env, `view ${axis} lower bound`);
       const hi = num(range[1], env, `view ${axis} upper bound`);
-      if (lo >= hi) throw new Error(`view ${axis} range needs lo < hi (got ${lo}..${hi}).`);
+      if (lo >= hi || !Number.isFinite(hi - lo)) throw new Error(`view ${axis} range needs a finite lo < hi.`);
       spec[axis] = [lo, hi];
     }
     return spec;
@@ -148,7 +148,9 @@ export function parseViewRow(text: string, env: Record<string, number>): ViewSpe
 
 /** The app clamps phi short of the poles so "up" never flips; match it. */
 export const clampPhi = (phi: number): number =>
-  Math.min(Math.PI / 2 - 0.01, Math.max(-Math.PI / 2 + 0.01, phi));
+  Number.isFinite(phi)
+    ? Math.min(Math.PI / 2 - 0.01, Math.max(-Math.PI / 2 + 0.01, phi))
+    : 0;
 
 /**
  * Fit the requested box into a w×h viewport: uniform scale, whole box
@@ -160,21 +162,32 @@ export function fitView2D(
   w: number,
   h: number,
 ): { cx: number; cy: number; upp: number } {
+  if (!Number.isFinite(w) || !Number.isFinite(h) || !(w > 0 && h > 0)) {
+    throw new Error('Viewport dimensions must be positive and finite.');
+  }
   const sx = spec.x ? spec.x[1] - spec.x[0] : 0;
   const sy = spec.y ? spec.y[1] - spec.y[0] : 0;
+  if (!Number.isFinite(sx) || !Number.isFinite(sy) || !(sx > 0 || sy > 0)) {
+    throw new Error('View ranges must have a finite positive span.');
+  }
   const upp = Math.max(sx / w, sy / h);
+  if (!Number.isFinite(upp) || !(upp > 0)) throw new Error('View scale is not finite.');
   return {
-    cx: spec.x ? (spec.x[0] + spec.x[1]) / 2 : 0,
-    cy: spec.y ? (spec.y[0] + spec.y[1]) / 2 : 0,
+    cx: spec.x ? spec.x[0] / 2 + spec.x[1] / 2 : 0,
+    cy: spec.y ? spec.y[0] / 2 + spec.y[1] / 2 : 0,
     upp,
   };
 }
 
 /** Same 6-significant-digit trim sliders use, so rewritten rows stay tidy. */
-const fmt = (v: number) => String(parseFloat(v.toPrecision(6)));
+const fmt = (v: number) => {
+  if (!Number.isFinite(v)) throw new Error('Cannot format a non-finite view value.');
+  return String(parseFloat(v.toPrecision(6)));
+};
 
 /** Serialize the visible window back into row text (the writeback half). */
 export function formatViewRow(x0: number, x1: number, y0: number, y1: number): string {
+  if (!(x0 < x1) || !(y0 < y1)) throw new Error('View bounds must be finite with lo < hi.');
   return `view(x = ${fmt(x0)}..${fmt(x1)}, y = ${fmt(y0)}..${fmt(y1)})`;
 }
 
@@ -184,6 +197,10 @@ export function formatCameraRow(c: {
   radius: number;
   target: [number, number, number];
 }): string {
+  if (!Number.isFinite(c.theta) || !Number.isFinite(c.phi) || !Number.isFinite(c.radius) || c.radius <= 0
+    || c.target.length !== 3 || !c.target.every(Number.isFinite)) {
+    throw new Error('Cannot format a camera with non-finite values.');
+  }
   const parts = [fmt(c.theta), fmt(c.phi), fmt(c.radius)];
   if (c.target.some(v => Math.abs(v) > 1e-9)) {
     parts.push(`(${c.target.map(fmt).join(', ')})`);

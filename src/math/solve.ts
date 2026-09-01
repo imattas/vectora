@@ -49,10 +49,10 @@ export function solveSystem(
 ): number[][] {
   const n = residuals.length;
   if (n !== vars.length || (n !== 2 && n !== 3)) return [];
-  if (lo.some((v, k) => !(hi[k] > v) || !isFinite(v) || !isFinite(hi[k]))) return [];
+  if (lo.some((v, k) => !(hi[k] > v) || !isFinite(v) || !isFinite(hi[k]) || !isFinite(hi[k] - v))) return [];
 
   const env: Record<string, number> = { ...opts.env };
-  const margin = opts.margin ?? 0.05;
+  const margin = Number.isFinite(opts.margin) && opts.margin! >= 0 ? opts.margin! : 0.05;
 
   // Symbolic Jacobian where it exists; null entries fall back to differences.
   const jac: Array<Array<Expr | null>> = residuals.map(r => vars.map(v => {

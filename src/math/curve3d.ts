@@ -50,6 +50,7 @@ const finite3 = (a: Float32Array, i: number): boolean =>
 
 /** Half the bounding-box diagonal of the finite samples; 0 if none. */
 export function curveExtent(pts: Float32Array): number {
+  if (pts.length % 3 !== 0) return 0;
   const n = pts.length / 3;
   let lo = [Infinity, Infinity, Infinity];
   let hi = [-Infinity, -Infinity, -Infinity];
@@ -71,6 +72,14 @@ export function curveFrames(
   d2?: Float32Array,
   d3?: Float32Array,
 ): CurveFrames {
+  if (pts.length % 3 !== 0 || pts.length < 6) {
+    throw new Error('A curve needs at least two xyz samples.');
+  }
+  for (const derivative of [d1, d2, d3]) {
+    if (derivative && derivative.length !== pts.length) {
+      throw new Error('Curve derivative samples must match the point samples.');
+    }
+  }
   const n = pts.length / 3;
   const r1 = d1 ?? fdDeriv(pts, n);
   const r2 = d2 ?? fdDeriv(r1, n);
@@ -233,6 +242,7 @@ export interface TubeMesh {
 }
 
 const ANGULAR_CELLS = 8;
+const MAX_TUBE_SEGMENTS = 256;
 
 /** Sweep a circle of `radius` along the curve using the rotation-minimizing frame. */
 export function buildTube(
@@ -241,6 +251,10 @@ export function buildTube(
   radius: number,
   segments = 24,
 ): TubeMesh {
+  if (!Number.isFinite(radius) || radius <= 0) throw new Error('Tube radius must be positive and finite.');
+  if (!Number.isInteger(segments) || segments < 3 || segments > MAX_TUBE_SEGMENTS) {
+    throw new Error(`Tube segments must be an integer from 3 to ${MAX_TUBE_SEGMENTS}.`);
+  }
   const n = pts.length / 3;
   const { normal, binormal, closed } = frames;
   // Rings carry a duplicated seam column (angle 0 again as angle 1) so the
@@ -329,6 +343,10 @@ export function buildComb(
   scale: number,
   step = 4,
 ): Comb {
+  if (pts.length % 3 !== 0 || dirs.length !== pts.length || values.length !== pts.length / 3) {
+    throw new Error('Comb samples must have matching xyz and scalar lengths.');
+  }
+  if (!Number.isInteger(step) || step < 1) throw new Error('Comb step must be a positive integer.');
   const n = pts.length / 3;
   const teeth: number[] = [];
   const tips: number[] = [];
@@ -361,11 +379,13 @@ export function buildComb(
  * planar curve's τ≈0 finite-difference noise would amplify to full height.
  */
 export function combScale(values: Float64Array, extent: number, frac = 0.18): number {
+  if (!Number.isFinite(extent) || extent <= 0 || !Number.isFinite(frac) || frac <= 0) return 0;
   let max = 0;
   for (const v of values) {
     const a = Math.abs(v);
     if (isFinite(a) && a > max) max = a;
   }
-  if (extent === 0 || max * extent < 1e-2) return 0;
-  return frac * extent / max;
+  if (max === 0 || max * extent < 1e-2) return 0;
+  const scale = frac * extent / max;
+  return Number.isFinite(scale) ? scale : 0;
 }

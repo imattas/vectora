@@ -1,7 +1,17 @@
 /** Minimal column-major mat4 utilities (only what the 3D view needs). */
 export type Mat4 = Float32Array;
 
+function assertMat4(m: Mat4, label: string): void {
+  if (m.length !== 16 || !Array.from(m).every(Number.isFinite)) {
+    throw new Error(`${label} must contain 16 finite values.`);
+  }
+}
+
 export function perspective(fovY: number, aspect: number, near: number, far: number): Mat4 {
+  if (![fovY, aspect, near, far].every(Number.isFinite) || !(fovY > 0 && fovY < Math.PI)
+    || !(aspect > 0) || !(near > 0 && far > near)) {
+    throw new Error('Invalid perspective parameters.');
+  }
   const f = 1 / Math.tan(fovY / 2);
   const nf = 1 / (near - far);
   const m = new Float32Array(16);
@@ -15,9 +25,15 @@ export function perspective(fovY: number, aspect: number, near: number, far: num
 
 /** Right-handed lookAt with +Z treated as up (math convention). */
 export function lookAt(eye: number[], target: number[], up: number[]): Mat4 {
+  if (eye.length < 3 || target.length < 3 || up.length < 3
+    || ![...eye.slice(0, 3), ...target.slice(0, 3), ...up.slice(0, 3)].every(Number.isFinite)) {
+    throw new Error('Invalid lookAt vectors.');
+  }
+  if (!(Math.hypot(up[0], up[1], up[2]) > 1e-12)) throw new Error('lookAt up vector must differ from zero.');
   const [ex, ey, ez] = eye;
   let zx = ex - target[0], zy = ey - target[1], zz = ez - target[2];
   const zl = Math.hypot(zx, zy, zz);
+  if (!(zl > 1e-12)) throw new Error('lookAt eye and target must differ.');
   zx /= zl; zy /= zl; zz /= zl;
   let xx = up[1] * zz - up[2] * zy;
   let xy = up[2] * zx - up[0] * zz;
@@ -49,12 +65,15 @@ export function lookAt(eye: number[], target: number[], up: number[]): Mat4 {
 }
 
 export function multiply(a: Mat4, b: Mat4): Mat4 {
+  assertMat4(a, 'Matrix a');
+  assertMat4(b, 'Matrix b');
   const out = new Float32Array(16);
   for (let c = 0; c < 4; c++) {
     for (let r = 0; r < 4; r++) {
       let s = 0;
       for (let k = 0; k < 4; k++) s += a[k * 4 + r] * b[c * 4 + k];
       out[c * 4 + r] = s;
+      if (!Number.isFinite(out[c * 4 + r])) throw new Error('Matrix multiplication is non-finite.');
     }
   }
   return out;
@@ -62,6 +81,7 @@ export function multiply(a: Mat4, b: Mat4): Mat4 {
 
 export function invert(m: Mat4): Mat4 {
   // Standard cofactor inversion.
+  assertMat4(m, 'Matrix');
   const inv = new Float32Array(16);
   const a = m;
   inv[0] = a[5] * a[10] * a[15] - a[5] * a[11] * a[14] - a[9] * a[6] * a[15] + a[9] * a[7] * a[14] + a[13] * a[6] * a[11] - a[13] * a[7] * a[10];
@@ -81,8 +101,11 @@ export function invert(m: Mat4): Mat4 {
   inv[11] = -a[0] * a[5] * a[11] + a[0] * a[7] * a[9] + a[4] * a[1] * a[11] - a[4] * a[3] * a[9] - a[8] * a[1] * a[7] + a[8] * a[3] * a[5];
   inv[15] = a[0] * a[5] * a[10] - a[0] * a[6] * a[9] - a[4] * a[1] * a[10] + a[4] * a[2] * a[9] + a[8] * a[1] * a[6] - a[8] * a[2] * a[5];
   let det = a[0] * inv[0] + a[1] * inv[4] + a[2] * inv[8] + a[3] * inv[12];
-  if (det === 0) throw new Error('Singular matrix');
+  if (!Number.isFinite(det) || det === 0) throw new Error('Singular or non-finite matrix');
   det = 1 / det;
-  for (let i = 0; i < 16; i++) inv[i] *= det;
+  for (let i = 0; i < 16; i++) {
+    inv[i] *= det;
+    if (!Number.isFinite(inv[i])) throw new Error('Matrix inverse is non-finite');
+  }
   return inv;
 }

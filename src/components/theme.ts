@@ -112,17 +112,19 @@ export function toggleTheme(): void {
  * OS setting and keep following it until the user picks a side themselves.
  */
 export function initTheme(): void {
-  let stored: string | null = null;
-  try {
-    stored = localStorage.getItem(STORAGE_KEY);
-  } catch {}
   const mql = window.matchMedia?.('(prefers-color-scheme: dark)');
-  set(stored === 'dark' || stored === 'light' ? stored : mql?.matches ? 'dark' : 'light');
+  const readStored = (): string | null => {
+    try { return localStorage.getItem(STORAGE_KEY); } catch { return null; }
+  };
+  const applyStored = (stored: string | null) => {
+    set(stored === 'dark' || stored === 'light' ? stored : mql?.matches ? 'dark' : 'light');
+  };
+  applyStored(readStored());
   mql?.addEventListener?.('change', e => {
-    let s: string | null = null;
-    try {
-      s = localStorage.getItem(STORAGE_KEY);
-    } catch {}
+    const s = readStored();
     if (s !== 'dark' && s !== 'light') set(e.matches ? 'dark' : 'light');
+  });
+  window.addEventListener('storage', event => {
+    if (event.key === STORAGE_KEY || event.key === null) applyStored(event.key === STORAGE_KEY ? event.newValue : readStored());
   });
 }

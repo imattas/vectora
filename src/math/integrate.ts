@@ -480,41 +480,50 @@ const G7_W = [0.4179591836734694, 0.3818300505051189, 0.2797053914892767, 0.1294
  * budget — divergence reads as "no answer", never a confident wrong one.
  */
 export function quadrature(f: (x: number) => number, lo: number, hi: number): number {
+  let threw = false;
+  const safeF = (x: number): number => {
+    try { return f(x); } catch { threw = true; return NaN; }
+  };
   if (Number.isNaN(lo) || Number.isNaN(hi)) return NaN;
   if (lo === hi) return 0;
   if (!isFinite(lo) || !isFinite(hi)) {
     if (lo > hi) return -quadrature(f, hi, lo);
     if (lo === -Infinity && hi === Infinity) {
       // x = u/(1−u²) maps (−1, 1) onto ℝ; dx = (1+u²)/(1−u²)² du.
-      return quadrature(u => {
+      const result = quadrature(u => {
         const d = 1 - u * u;
-        return (f(u / d) * (1 + u * u)) / (d * d);
+        return (safeF(u / d) * (1 + u * u)) / (d * d);
       }, -1, 1);
+      return threw ? NaN : result;
     }
     if (hi === Infinity) {
       // x = lo + u/(1−u) maps (0, 1) onto (lo, ∞); dx = du/(1−u)².
-      return quadrature(u => {
+      const result = quadrature(u => {
         const d = 1 - u;
-        return f(lo + u / d) / (d * d);
+        return safeF(lo + u / d) / (d * d);
       }, 0, 1);
+      return threw ? NaN : result;
     }
     // (−∞, hi): the mirror map.
-    return quadrature(u => {
+    const result = quadrature(u => {
       const d = 1 - u;
-      return f(hi - u / d) / (d * d);
+      return safeF(hi - u / d) / (d * d);
     }, 0, 1);
+    return threw ? NaN : result;
   }
   const sign = lo < hi ? 1 : -1;
   const a = Math.min(lo, hi);
   const b = Math.max(lo, hi);
+  const rangeScale = Math.max(1, Math.abs(a), Math.abs(b));
+  const normalizedRange = b / rangeScale - a / rangeScale;
   const panel = (x0: number, x1: number): { k: number; err: number } => {
-    const c = (x0 + x1) / 2;
-    const h = (x1 - x0) / 2;
+    const c = x0 / 2 + x1 / 2;
+    const h = x1 / 2 - x0 / 2;
     let k15 = 0;
     let g7 = 0;
     for (let i = 0; i < 8; i++) {
-      const fp = f(c + h * K15_X[i]);
-      const fm = i === 0 ? fp : f(c - h * K15_X[i]);
+      const fp = safeF(c + h * K15_X[i]);
+      const fm = i === 0 ? fp : safeF(c - h * K15_X[i]);
       const s = i === 0 ? fp : fp + fm;
       k15 += K15_W[i] * s;
       // The embedded G7 rule lives on the even-index K15 nodes.
@@ -530,7 +539,8 @@ export function quadrature(f: (x: number) => number, lo: number, hi: number): nu
     const { x0, x1, depth } = stack.pop()!;
     const { k, err } = panel(x0, x1);
     evals += 15;
-    const tol = 1e-10 * Math.max(1, Math.abs(total)) * ((x1 - x0) / (b - a));
+    const panelFraction = (x1 / rangeScale - x0 / rangeScale) / normalizedRange;
+    const tol = 1e-10 * Math.max(1, Math.abs(total)) * panelFraction;
     // Depth 45 lets an endpoint singularity refine down to ~1e-12 widths
     // (only the singular panel keeps splitting, so the cost stays linear).
     if (err <= tol || depth >= 45 || evals > 20000) {
@@ -542,10 +552,10 @@ export function quadrature(f: (x: number) => number, lo: number, hi: number): nu
       // neighboring subdivisions already carry the finite mass.
       continue;
     }
-    const mid = (x0 + x1) / 2;
+    const mid = x0 / 2 + x1 / 2;
     stack.push({ x0, x1: mid, depth: depth + 1 }, { x0: mid, x1, depth: depth + 1 });
   }
-  if (!isFinite(total) || badMass > 1e-4 * Math.max(1, Math.abs(total))) return NaN;
+  if (threw || !isFinite(total) || badMass > 1e-4 * Math.max(1, Math.abs(total))) return NaN;
   return sign * total;
 }
 

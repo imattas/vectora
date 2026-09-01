@@ -82,4 +82,12 @@ describe('specialPoints', () => {
     const root = pts.find(p => p.y === 0)!;
     expect(root.lines[1]).toBe('x = 355/113');
   });
+
+  it('keeps finite axis crossings for extreme finite polylines', () => {
+    const found = polylineSpecialPoints([
+      { x: -1e308, y: -1 },
+      { x: 1e308, y: 1 },
+    ], false, -1e308, 1e308, -2, 2);
+    expect(found.some(point => point.x === 0 && point.y === 0)).toBe(true);
+  });
 });

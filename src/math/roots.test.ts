@@ -62,6 +62,12 @@ describe('findRoots (numeric path)', () => {
     expect(r.length).toBe(1);
     expect(r[0].x).toBeCloseTo(1, 12);
   });
+
+  it('keeps finite coordinates across an overflowing interval width', () => {
+    const r = find('sin(x)', -Number.MAX_VALUE, Number.MAX_VALUE) as Array<{ x: number }>;
+    expect(r.some(root => root.x === 0)).toBe(true);
+    expect(r.every(root => Number.isFinite(root.x))).toBe(true);
+  });
 });
 
 describe('findRoots (bit-budget fallback)', () => {

@@ -234,6 +234,17 @@ await scenario('typing syncs', async () => {
   check('typing syncs state to the URL', result.url.includes('y = x^2'), `url=${result.url} state=${JSON.stringify(result.state)}`);
 });
 
+await scenario('history write failures do not interrupt editing', async () => {
+  await load(page, ['y = x']);
+  await page.evaluate(() => {
+    history.replaceState = (() => { throw new DOMException('history quota', 'SecurityError'); }) as typeof history.replaceState;
+  });
+  await caretTo(page, 0, 5);
+  await page.keyboard.type('^2');
+  const after = await rowTexts(page);
+  check('history write failures do not interrupt editing', after[0] === 'y = x^2', `rows=${JSON.stringify(after)}`);
+});
+
 await scenario('canonicalization preserves deployment query parameters', async () => {
   await page.goto('about:blank');
   await page.goto(ORIGIN + '/?tenant=demo#y%20%3D%20x');
@@ -304,6 +315,38 @@ await scenario('color picker supports keyboard navigation and focus return', asy
   check('color picker Escape closes and returns focus', closed.hidden === true && closed.activeEditor, JSON.stringify(closed));
 });
 
+await scenario('complex plots compile through the WebGL renderer', async () => {
+  await page.goto(ORIGIN + '/#' + encodeURIComponent('ln(w)'));
+  await page.waitForTimeout(300);
+  const state = await page.evaluate(() => ({
+    canvas: document.querySelector<HTMLCanvasElement>('#gl')?.width ?? 0,
+    status: document.querySelector<HTMLElement>('#render-status')?.textContent ?? '',
+  }));
+  check('complex plots compile through the WebGL renderer', state.canvas > 0 && !/WebGL2 is required|shader error/i.test(state.status), JSON.stringify(state));
+});
+
+await scenario('row action menus expose state and restore focus', async () => {
+  await load(page, ['y=x']);
+  const trigger = page.locator('.row-options-trigger').first();
+  await trigger.click();
+  const opened = await page.evaluate(() => ({
+    expanded: document.querySelector<HTMLButtonElement>('.row-options-trigger')?.getAttribute('aria-expanded'),
+    controls: document.querySelector<HTMLButtonElement>('.row-options-trigger')?.getAttribute('aria-controls'),
+    menu: document.querySelector<HTMLElement>('.row-options')?.getAttribute('role'),
+    items: document.querySelectorAll('.row-options [role="menuitem"]').length,
+    focusedItem: document.activeElement?.getAttribute('role'),
+  }));
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('Escape');
+  const closed = await page.evaluate(() => ({
+    expanded: document.querySelector<HTMLButtonElement>('.row-options-trigger')?.getAttribute('aria-expanded'),
+    hidden: document.querySelector<HTMLElement>('.row-options')?.hidden,
+    focused: document.activeElement?.classList.contains('row-options-trigger'),
+  }));
+  check('row action menu exposes menu state', opened.expanded === 'true' && opened.controls && opened.menu === 'menu' && opened.items > 0 && opened.focusedItem === 'menuitem', JSON.stringify(opened));
+  check('row action menu Escape restores focus', closed.expanded === 'false' && closed.hidden === true && closed.focused, JSON.stringify(closed));
+});
+
 await scenario('collapsed rows still copy and share', async () => {
   await load(page, ['# Lines', 'y=x', 'y=x^2']);
   await gutterClick(page, 0);
@@ -336,11 +379,21 @@ await scenario('first-run onboarding can be skipped and replayed', async () => {
   check('first visit shows the Vectora welcome modal', welcome.includes('Welcome to Vectora') && welcome.includes('Ian Mattas'));
   await page.getByRole('button', { name: 'Skip onboarding' }).click({ timeout: 3000 });
   check('skip onboarding closes the modal', await page.locator('.onboarding-dialog').isHidden());
-  const closedState = await page.evaluate(() => ({ open: document.querySelector<HTMLDialogElement>('.onboarding-dialog')?.open, help: !!document.querySelector('#onboarding-help') }));
+  const closedState = await page.evaluate(() => ({
+    open: document.querySelector<HTMLDialogElement>('.onboarding-dialog')?.open,
+    help: !!document.querySelector('#onboarding-help'),
+    focusedHelp: document.activeElement?.id === 'onboarding-help',
+  }));
   check('onboarding leaves the help control available', !closedState.open && closedState.help, JSON.stringify(closedState));
+  check('closing onboarding restores launcher focus', closedState.focusedHelp, JSON.stringify(closedState));
   await page.evaluate(() => (document.querySelector('#onboarding-help') as HTMLButtonElement).click());
   const reopened = await page.evaluate(() => document.querySelector<HTMLDialogElement>('.onboarding-dialog')?.open === true);
   check('help reopens onboarding', reopened);
+  const labels = await page.evaluate(() => {
+    const dialog = document.querySelector<HTMLDialogElement>('.onboarding-dialog');
+    return { labelled: dialog?.getAttribute('aria-labelledby') === 'onboarding-title', described: dialog?.getAttribute('aria-describedby') === 'onboarding-body' };
+  });
+  check('onboarding exposes dialog labels', labels.labelled && labels.described, JSON.stringify(labels));
   const primary = page.locator('.onboarding-dialog[open] .onboarding-primary');
   await primary.click({ timeout: 3000 });
   for (let i = 0; i < 3; i++) await primary.click({ timeout: 3000 });
@@ -412,6 +465,59 @@ await scenario('workspace controls are removed and the editor uses the technical
   }));
   check('workspace controls are absent from the sidebar toolbar', state.workspaceControls.length === 0, JSON.stringify(state));
   check('editor uses the deliberate technical font stack', /Inter/i.test(state.editorFont) && /Inter/i.test(state.headerFont), JSON.stringify(state));
+});
+
+await scenario('add menu supports keyboard navigation and exposes its relationship', async () => {
+  await page.goto(ORIGIN + '/#y%3Dx');
+  const trigger = page.locator('.add-menu-trigger');
+  await trigger.focus();
+  await page.keyboard.press('Enter');
+  const first = await page.evaluate(() => document.activeElement?.textContent?.trim());
+  await page.keyboard.press('ArrowDown');
+  const second = await page.evaluate(() => document.activeElement?.textContent?.trim());
+  const state = await page.evaluate(() => ({
+    controls: document.querySelector('.add-menu-trigger')?.getAttribute('aria-controls'),
+    role: document.activeElement?.getAttribute('role'),
+  }));
+  check('add menu supports keyboard navigation and exposes its relationship', first === 'Expression' && second === 'Point' && !!state.controls && state.role === 'menuitem', JSON.stringify({ first, second, ...state }));
+  await page.keyboard.press('Escape');
+});
+
+await scenario('workspace menu saves and restores a named graph', async () => {
+  await page.evaluate(() => localStorage.setItem('vectora-workspaces-v1', JSON.stringify([{ id: 'test-workspace', name: 'Line workspace', updatedAt: Date.now(), equations: ['y = x'], settings: { grid: true, axes: true, labels: true, points: true, snap: false, angleUnit: 'degrees' } }])));
+  await page.goto(ORIGIN + '/#y%20%3D%20x');
+  await page.waitForSelector('#workspace-menu');
+  await page.locator('#workspace-menu').evaluate((element) => (element as HTMLButtonElement).click());
+  await page.waitForSelector('.workspace-open');
+  const saved = await page.locator('.workspace-open').first().innerText();
+  const saveAvailable = await page.getByRole('button', { name: 'Save current' }).count();
+  await page.goto(ORIGIN + '/#y%20%3D%20x%5E2');
+  await page.locator('#workspace-menu').evaluate((element) => (element as HTMLButtonElement).click());
+  await page.waitForSelector('.workspace-open');
+  await page.locator('.workspace-open').first().evaluate((element) => (element as HTMLButtonElement).click());
+  const restored = await rowTexts(page);
+  check('workspace menu opens and restores a named graph', saved === 'Line workspace' && saveAvailable === 1 && restored.some(row => row?.includes('y = x')), JSON.stringify({ saved, saveAvailable, restored }));
+});
+
+await scenario('header popovers do not overlap and close with Escape', async () => {
+  await page.goto(ORIGIN + '/#y%3Dx');
+  await page.locator('#workspace-menu').click();
+  const workspaceFocus = await page.evaluate(() => document.activeElement?.getAttribute('aria-label'));
+  await page.locator('#graph-settings').click();
+  const settingsFocus = await page.evaluate(() => document.activeElement?.getAttribute('aria-label'));
+  const exclusive = await page.evaluate(() => ({
+    workspace: document.querySelector<HTMLElement>('.workspace-popover')?.hidden,
+    settings: document.querySelector<HTMLElement>('.graph-settings-popover')?.hidden,
+    workspacePopup: document.querySelector('#workspace-menu')?.getAttribute('aria-haspopup'),
+    settingsPopup: document.querySelector('#graph-settings')?.getAttribute('aria-haspopup'),
+  }));
+  await page.keyboard.press('Escape');
+  const closed = await page.evaluate(() => ({
+    settings: document.querySelector<HTMLElement>('.graph-settings-popover')?.hidden,
+    focused: document.activeElement?.id,
+  }));
+  check('header popovers are mutually exclusive', exclusive.workspace === true && exclusive.settings === false && exclusive.workspacePopup === 'dialog' && exclusive.settingsPopup === 'dialog' && workspaceFocus === 'Save current workspace' && settingsFocus === 'Grid', JSON.stringify({ ...exclusive, workspaceFocus, settingsFocus }));
+  check('graph settings closes with Escape', closed.settings === true && closed.focused === 'graph-settings', JSON.stringify(closed));
 });
 
 await browser.close();

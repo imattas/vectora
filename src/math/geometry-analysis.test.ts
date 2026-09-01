@@ -97,4 +97,41 @@ describe('analyzeGeometry', () => {
     expect(result.unavailable[0].reason).toMatch(/defined point/);
     expect(result.byRow.get(1)?.[0].kind).toBe('segment');
   });
+
+  it('rejects degenerate line-like constructions', () => {
+    const result = analyzeGeometry([
+      { row: 0, text: 'line((0, 0), (0, 0))' },
+      { row: 1, text: 'parallel((1, 1), (1, 1), (0, 0))' },
+      { row: 2, text: 'segment((0, 0), (1, 1))' },
+    ]);
+    expect(result.unavailable.map(item => item.reason)).toEqual([
+      'line needs two distinct points.',
+      'parallel needs two distinct direction points.',
+    ]);
+    expect(result.byRow.get(2)?.[0].kind).toBe('segment');
+  });
+
+  it('keeps extreme-coordinate perpendicular bisectors finite', () => {
+    const result = analyzeGeometry([
+      { row: 0, text: 'perpendicularBisector(A, B)' },
+    ], new Map([
+      ['A', { x: -1e308, y: 0 }],
+      ['B', { x: 1e308, y: 0 }],
+    ]));
+    expect(result.unavailable).toEqual([]);
+    const bisector = result.byRow.get(0)?.[0];
+    expect(bisector?.kind).toBe('line');
+    if (bisector?.kind === 'line') {
+      expect([bisector.a.x, bisector.a.y, bisector.b.x, bisector.b.y].every(Number.isFinite)).toBe(true);
+    }
+  });
+
+  it('reports squares that cannot be represented with finite corners', () => {
+    const result = analyzeGeometry([{ row: 0, text: 'square(A, B)' }], new Map([
+      ['A', { x: -1e308, y: 0 }],
+      ['B', { x: 1e308, y: 0 }],
+    ]));
+    expect(result.byRow.has(0)).toBe(false);
+    expect(result.unavailable[0]?.reason).toMatch(/finite coordinate range/i);
+  });
 });

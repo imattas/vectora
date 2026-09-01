@@ -111,6 +111,8 @@ export function advanceState(
   to: number,
 ): number {
   const n = sys.names.length;
+  if (!isFinite(from)) from = 0;
+  if (!isFinite(to) || to <= from) return from;
   // The epsilon keeps a frame that is a whole number of steps long from
   // losing one to float dust and running a step behind ever after.
   let steps = Math.floor((to - from) / STEP + 1e-9);
@@ -135,7 +137,10 @@ export function advanceState(
     }
   }
 
-  const y = sys.names.map(name => values[name] ?? 0);
+  const y = sys.names.map(name => {
+    const value = values[name];
+    return value !== undefined && isFinite(value) ? value : 0;
+  });
   const tmp = new Array<number>(n);
   const k1 = new Array<number>(n);
   const k2 = new Array<number>(n);
@@ -175,21 +180,25 @@ export function advanceState(
 
   const h = STEP;
   let now = from;
+  let failed = false;
   for (let s = 0; s < steps; s++) {
-    if (!deriv(now, y, k1)) break;
-    if (!stage(now + h / 2, h / 2, k1, k2)) break;
-    if (!stage(now + h / 2, h / 2, k2, k3)) break;
-    if (!stage(now + h, h, k3, k4)) break;
+    if (!deriv(now, y, k1)) { failed = true; break; }
+    if (!stage(now + h / 2, h / 2, k1, k2)) { failed = true; break; }
+    if (!stage(now + h / 2, h / 2, k2, k3)) { failed = true; break; }
+    if (!stage(now + h, h, k3, k4)) { failed = true; break; }
     let ok = true;
     for (let i = 0; i < n; i++) {
       tmp[i] = y[i] + (h / 6) * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i]);
       if (!isFinite(tmp[i])) ok = false;
     }
-    if (!ok) break;
+    if (!ok) { failed = true; break; }
     for (let i = 0; i < n; i++) y[i] = tmp[i];
     now += h;
   }
 
   for (let i = 0; i < n; i++) values[sys.names[i]] = y[i];
-  return reached;
+  // A failed RK stage means the clock only reached `now`; reporting the
+  // planned endpoint would permanently skip the failed interval and prevent
+  // a later edit or recovery from retrying it.
+  return failed ? now : reached;
 }

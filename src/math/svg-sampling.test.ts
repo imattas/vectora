@@ -3,6 +3,14 @@ import { parseExpr } from './expr.ts';
 import { sampleImplicitContours, sampleImplicitVerticalContours } from './svg-sampling.ts';
 
 describe('sampleImplicitContours', () => {
+  it('keeps malformed sampling options finite and bounded', () => {
+    const expr = parseExpr('y = x');
+    expect(sampleImplicitContours(expr, { xlo: 0, xhi: 1, ylo: 0, yhi: 1 }, {
+      columns: Infinity, seeds: Infinity, iterations: Infinity, tolerance: NaN,
+    })).toHaveLength(1);
+    expect(sampleImplicitContours(expr, { xlo: -Infinity, xhi: 1, ylo: 0, yhi: 1 })).toEqual([]);
+  });
+
   const bounds = { xlo: -3, xhi: 3, ylo: -3, yhi: 3 };
 
   it('keeps both branches of a circle as separate vector paths', () => {

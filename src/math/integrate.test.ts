@@ -167,6 +167,16 @@ describe('quadrature', () => {
     expect(q('exp(x)', -Infinity, 0)).toBeCloseTo(1, 8);
     expect(q('1/x^2', Infinity, 1)).toBeCloseTo(-1, 7); // reversed
   });
+
+  it('keeps finite arithmetic stable across extreme bounds', () => {
+    expect(quadrature(x => x, -Number.MAX_VALUE, Number.MAX_VALUE)).toBeCloseTo(0, 12);
+    expect(quadrature(() => 1 / Number.MAX_VALUE, 0, Number.MAX_VALUE)).toBeCloseTo(1, 10);
+  });
+
+  it('returns no answer when the evaluator throws', () => {
+    expect(quadrature(() => { throw new Error('broken evaluator'); }, 0, 1)).toBeNaN();
+    expect(quadrature(() => { throw new Error('broken evaluator'); }, 0, Infinity)).toBeNaN();
+  });
 });
 
 describe('verifyDefinite', () => {

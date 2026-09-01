@@ -228,6 +228,10 @@ describe('probabilityValue (exact)', () => {
     expect(value('Exponential(2)', 'X < -1')).toBe(0);
   });
 
+  it('returns zero for reversed bounds', () => {
+    expect(value('Normal(0, 1)', '2 < X < 1')).toBe(0);
+  });
+
   it('is NaN while parameters are invalid', () => {
     expect(value('Normal(0, s)', 'X < 1', { s: 0 })).toBeNaN();
     expect(value('Uniform(3, 1)', 'X < 1')).toBeNaN();
@@ -315,6 +319,13 @@ describe('E(…) rows', () => {
     expect(densityAt(curve, 0.5)).toBeCloseTo(1, 9);
     expect(densityAt(curve, 1)).toBeCloseTo(2, 9);
     expect(densityAt(curve, 5)).toBe(0);
+  });
+
+  it('rejects malformed density coordinates and clip bounds', () => {
+    const curve = { pts: [0, 0, NaN, 2, 2, 0], mean: 1, sd: 0.5, mass: 1 };
+    expect(densityAt(curve, 1)).toBe(0);
+    expect(shadePolygon(curve, NaN, 1)).toBeNull();
+    expect(shadePolygon({ ...curve, pts: [0, 1, 2] }, 0, 1)).toBeNull();
   });
 });
 
@@ -542,6 +553,7 @@ describe('exact laws (law propagation + uniform convolution)', () => {
     expect(at(2)).toBeCloseTo(0, 12);
     expect(at(0.5)).toBeCloseTo(0.5, 12);
     expect(sys.exactProbability('S', undefined, parseExpr('1'), {})).toBeCloseTo(0.5, 12);
+    expect(sys.exactProbability('S', parseExpr('2'), parseExpr('1'), {})).toBe(0);
     expect(sys.exactMoments('S', {})!.sd).toBeCloseTo(Math.sqrt(1 / 6), 12);
     expect(c.mass).toBe(1);
   });
@@ -683,6 +695,28 @@ describe('support edges', () => {
 });
 
 describe('density estimation', () => {
+  it('does not emit non-finite geometry for extreme finite samples', () => {
+    const huge = '9'.repeat(307);
+    const { sys } = build([
+      `X ~ Uniform(0, ${huge})`,
+      'Y ~ Uniform(0, 1)',
+      'W ~ Uniform(0, 1)',
+      'Z = abs(X) * Y + W',
+    ]);
+    const c = sys.curve('Z', {});
+    expect(c).not.toBeNull();
+    expect(Number.isFinite(c!.mean)).toBe(true);
+    expect(Number.isFinite(c!.sd)).toBe(true);
+    expect(c!.pts.every(Number.isFinite)).toBe(true);
+  });
+
+  it('keeps fallback means stable for opposing extreme samples', () => {
+    const huge = '9'.repeat(307);
+    const { sys } = build([`X ~ Uniform(-${huge}, ${huge})`]);
+    expect(Number.isFinite(sys.mean('X', {}))).toBe(true);
+    expect(sys.mean('X', {})).toBeCloseTo(0, 10);
+  });
+
   it('recovers the standard normal density closely', () => {
     const { sys } = build(['X ~ Normal(0, 1)']);
     const { pts } = sys.curve('X', {})!;

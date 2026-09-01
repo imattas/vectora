@@ -46,7 +46,7 @@ const C_FNS: Record<string, string> = {
 
 /** Complex-argument functions returning a real value. */
 const C_TO_REAL: Record<string, (z: string) => string> = {
-  abs: z => `length(${z})`,
+  abs: z => `c_abs(${z})`,
   re: z => `(${z}).x`,
   im: z => `(${z}).y`,
   arg: z => `atan((${z}).y, (${z}).x)`,

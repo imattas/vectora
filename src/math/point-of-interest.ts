@@ -19,7 +19,8 @@ export function findCurveIntersections(left: Expr, right: Expr, bounds: Bounds, 
   const f = (x: number, y: number) => residual(left, x, y);
   const g = (x: number, y: number) => residual(right, x, y);
   const spanX = bounds.xhi - bounds.xlo, spanY = bounds.yhi - bounds.ylo;
-  if (!(spanX > 0 && spanY > 0)) return out;
+  const workBudget = Number.isFinite(budget) ? Math.max(0, Math.min(8192, Math.floor(budget))) : 2048;
+  if (!(spanX > 0 && spanY > 0) || !Number.isFinite(spanX) || !Number.isFinite(spanY) || workBudget === 0) return out;
   const add = (x: number, y: number) => {
     if (!Number.isFinite(x) || !Number.isFinite(y) || x < bounds.xlo || x > bounds.xhi || y < bounds.ylo || y > bounds.yhi) return;
     if (out.some(p => Math.hypot(p.x - x, p.y - y) <= Math.max(spanX, spanY) * 1e-7)) return;
@@ -29,14 +30,14 @@ export function findCurveIntersections(left: Expr, right: Expr, bounds: Bounds, 
   // intersections are sparse in y but can oscillate rapidly along x; the old
   // 16x16 cap silently skipped dense roots before Newton had a chance to
   // converge. Keep the same work budget while allocating more samples to x.
-  const nx = Math.max(8, Math.min(64, Math.floor(Math.sqrt(Math.max(64, budget)))));
-  const ny = Math.max(3, Math.min(8, Math.floor(budget / (nx * 18))));
-  const steps = Math.max(6, Math.min(18, Math.floor(budget / (nx * ny))));
+  const nx = Math.max(8, Math.min(64, Math.floor(Math.sqrt(Math.max(64, workBudget)))));
+  const ny = Math.max(3, Math.min(8, Math.floor(workBudget / (nx * 18))));
+  const steps = Math.max(6, Math.min(18, Math.floor(workBudget / (nx * ny))));
   let used = 0;
-  for (let ix = 0; ix < nx && used < budget; ix++) for (let iy = 0; iy < ny && used < budget; iy++) {
+  for (let ix = 0; ix < nx && used < workBudget; ix++) for (let iy = 0; iy < ny && used < workBudget; iy++) {
     let x = bounds.xlo + (ix + 0.5) * spanX / nx;
     let y = bounds.ylo + (iy + 0.5) * spanY / ny;
-    for (let step = 0; step < steps && used++ < budget; step++) {
+    for (let step = 0; step < steps && used++ < workBudget; step++) {
       const a = f(x, y), b = g(x, y);
       if (!Number.isFinite(a) || !Number.isFinite(b)) break;
       const hx = Math.max(1e-7, spanX * 1e-5), hy = Math.max(1e-7, spanY * 1e-5);

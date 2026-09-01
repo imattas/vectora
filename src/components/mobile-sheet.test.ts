@@ -7,5 +7,7 @@ describe('mobile sheet gestures', () => {
     expect(swipeState(-40)).toBe('open');
     expect(swipeState(12)).toBeNull();
     expect(swipeState(Number.NaN)).toBeNull();
+    expect(swipeState(40, -1)).toBe('collapsed');
+    expect(swipeState(40, Number.NaN)).toBe('collapsed');
   });
 });

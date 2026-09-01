@@ -101,6 +101,10 @@ describe('angularSpacing', () => {
     expect(angularSpacing(0.01, 90).major).toBeCloseTo(Math.PI / 2);
     expect(angularSpacing(1, 90).major).toBeCloseTo(2 * Math.PI);
   });
+
+  it('normalizes malformed spacing inputs', () => {
+    expect(angularSpacing(NaN, 0).major).toBeCloseTo(2 * Math.PI);
+  });
 });
 
 describe('sampleGradMag', () => {
@@ -122,5 +126,11 @@ describe('sampleGradMag', () => {
     const f = buildGridField('s', defs.fields.get('s')!, new Set());
     // Away from integer x, ∇(floor(x)+2y) ≈ (0, 2).
     expect(sampleGradMag(f, [[0.5, 0]], {}, 0.05)).toBeCloseTo(2);
+  });
+
+  it('uses a safe step for malformed finite-difference input', () => {
+    const { defs } = buildDefs(consts(['s', 'floor(x) + 2y']));
+    const f = buildGridField('s', defs.fields.get('s')!, new Set());
+    expect(sampleGradMag(f, [[0.5, 0]], {}, 0)).toBeCloseTo(2);
   });
 });

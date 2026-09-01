@@ -94,6 +94,7 @@ export function analyzeGeometry(
         const args = pointArgs(e.args);
         if (args.length !== 2) throw new Error(`${e.name} takes two points.`);
         const a = resolvePoint(args[0]); const b = resolvePoint(args[1]);
+        if (a.x === b.x && a.y === b.y) throw new Error(`${e.name} needs two distinct points.`);
         return e.name === 'line' ? line(a, b) : e.name === 'ray' ? ray(a, b) : segment(a, b);
       }
       if (e.name === 'midpoint') {
@@ -123,14 +124,19 @@ export function analyzeGeometry(
           const b = resolvePoint(args[1]);
           const dx = b.x - a.x;
           const dy = b.y - a.y;
-          // Match the parser's square(A, B) lowering: erect the square to
-          // the left of A -> B so the overlay and the GPU plot agree.
-          return polygon([
+          if (!Number.isFinite(dx) || !Number.isFinite(dy)) throw new Error('Square side exceeds the finite coordinate range.');
+          const corners = [
             a,
             b,
             { x: b.x - dy, y: b.y + dx },
             { x: a.x - dy, y: a.y + dx },
-          ]);
+          ];
+          if (corners.some(p => !Number.isFinite(p.x) || !Number.isFinite(p.y))) {
+            throw new Error('Square extends outside the finite coordinate range.');
+          }
+          // Match the parser's square(A, B) lowering: erect the square to
+          // the left of A -> B so the overlay and the GPU plot agree.
+          return polygon(corners);
         }
         if (args.length < 3) throw new Error('polygon needs at least three points.');
         return polygon(args.map(resolvePoint));
@@ -148,19 +154,32 @@ export function analyzeGeometry(
         if (args.length !== 3) throw new Error(`${e.name} takes two direction points and a through point.`);
         const a = resolvePoint(args[0]); const b = resolvePoint(args[1]); const through = resolvePoint(args[2]);
         const d = { x: b.x - a.x, y: b.y - a.y };
+        const directionScale = Math.max(Math.abs(d.x), Math.abs(d.y));
+        if (a.x === b.x && a.y === b.y || !Number.isFinite(directionScale) || directionScale === 0) {
+          throw new Error(`${e.name} needs two distinct direction points.`);
+        }
+        d.x /= directionScale; d.y /= directionScale;
         const end = e.name === 'parallel'
           ? { x: through.x + d.x, y: through.y + d.y }
           : { x: through.x - d.y, y: through.y + d.x };
+        if (!Number.isFinite(end.x) || !Number.isFinite(end.y)) throw new Error(`${e.name} could not construct a finite line.`);
         return line(through, end);
       }
       if (e.name === 'perpendicularBisector') {
         const args = pointArgs(e.args);
         if (args.length !== 2) throw new Error('perpendicularBisector takes two points.');
         const a = resolvePoint(args[0]); const b = resolvePoint(args[1]);
-        const dx = b.x - a.x, dy = b.y - a.y; const length = Math.hypot(dx, dy);
-        if (length <= 1e-12) throw new Error('Cannot bisect two identical points.');
+        const coordinateScale = Math.max(Math.abs(a.x), Math.abs(a.y), Math.abs(b.x), Math.abs(b.y), 1);
+        const dx = b.x / coordinateScale - a.x / coordinateScale;
+        const dy = b.y / coordinateScale - a.y / coordinateScale;
+        const length = Math.hypot(dx, dy);
+        if (!Number.isFinite(length) || length <= 1e-12 / coordinateScale) throw new Error('Cannot bisect two identical points.');
         const mid = midpoint(a, b); if (!mid.ok) throw new Error(mid.reason);
-        return line(mid.value, { x: mid.value.x - dy, y: mid.value.y + dx });
+        const rawOffset = coordinateScale * length;
+        const offset = Number.isFinite(rawOffset) ? rawOffset : Number.MAX_VALUE;
+        const end = { x: mid.value.x - (dy / length) * offset, y: mid.value.y + (dx / length) * offset };
+        if (!Number.isFinite(end.x) || !Number.isFinite(end.y)) throw new Error('Perpendicular bisector is outside the finite coordinate range.');
+        return line(mid.value, end);
       }
       if (e.name === 'tangent') {
         // Calls flatten tuple arguments, so tangent(circle((0,0), 2), (2,0))

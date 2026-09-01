@@ -84,6 +84,7 @@ import { renderMathPreview } from '../components/math-display.ts';
 import { DEFAULT_GRAPH_SETTINGS, loadGraphSettings, saveGraphSettings, type GraphSettings } from '../components/graph-settings.ts';
 import { getFunctionCompletions } from '../components/function-autocomplete.ts';
 import { initMobileSheet } from '../components/mobile-sheet.ts';
+import { deleteWorkspace, exportWorkspaces, importWorkspaces, listWorkspaces, loadWorkspace, saveWorkspace } from '../state/workspaces.ts';
 
 interface Equation {
   id: number;
@@ -241,6 +242,7 @@ canvas.addEventListener('webglcontextlost', event => {
 canvas.addEventListener('webglcontextrestored', () => {
   // WebGL resources are invalidated by context loss; reload rebuilds every
   // renderer/cache object from the current URL without stale handles.
+  flushUrl();
   if (renderStatus) renderStatus.textContent = 'Graphics recovered. Reloading…';
   location.reload();
 });
@@ -259,15 +261,25 @@ const overlayCtx = overlay.getContext('2d')!;
 /** True until the canvas has been measured once and the opening zoom picked. */
 let awaitingFirstSize = true;
 
+const pixelRatio = () => {
+  const raw = window.devicePixelRatio;
+  return Number.isFinite(raw) && raw > 0 ? Math.min(raw, 8) : 1;
+};
+
 /** Point the drawing buffers at the canvas's real CSS box. Returns false while
  *  the element has no box yet (not laid out, hidden), in which case the old
  *  buffer is left alone rather than blanked. Called before every frame as well
  *  as on resize: a buffer whose aspect drifts from the box gets stretched by
  *  CSS, which is what made shared links open squashed and at a random zoom. */
 function syncCanvasSize(): boolean {
-  const dpr = window.devicePixelRatio || 1;
-  const w = Math.round(canvas.clientWidth * dpr);
-  const h = Math.round(canvas.clientHeight * dpr);
+  const dpr = pixelRatio();
+  const cssWidth = canvas.clientWidth;
+  const cssHeight = canvas.clientHeight;
+  if (!Number.isFinite(cssWidth) || !Number.isFinite(cssHeight) || cssWidth <= 0 || cssHeight <= 0) return false;
+  // Keep hostile/misreported display metrics from exceeding browser canvas
+  // limits. CSS still controls the visual size; the cap only bounds pixels.
+  const w = Math.min(16384, Math.max(1, Math.round(cssWidth * dpr)));
+  const h = Math.min(16384, Math.max(1, Math.round(cssHeight * dpr)));
   if (!w || !h) return false;
   if (canvas.width !== w || canvas.height !== h) {
     canvas.width = w;
@@ -406,7 +418,7 @@ function render() {
   if (contextLost) return;
   if (!syncCanvasSize()) return;
   applyViewportRows();
-  const dpr = window.devicePixelRatio || 1;
+  const dpr = pixelRatio();
   const time = graphTime();
   const active = equations.filter(e => e.cls && !e.error && !e.hidden);
   mode = active.some(e => e.cls!.needs3D) ? '3d' : '2d';
@@ -448,16 +460,17 @@ function render() {
   const sampleCurve = (eq: Equation, dim: 2 | 3): number[] => {
     const { comps } = eq.cls!.plot as { comps: import('../math/expr.ts').Expr[] };
     const out: number[] = [];
-    for (let k = 0; k < CURVE_SAMPLES; k++) {
-      const u = k / (CURVE_SAMPLES - 1);
-      for (let c = 0; c < dim; c++) {
-        try {
-          out.push(evaluate(comps[c], { ...constEnv, u, t: time }));
-        } catch {
-          out.push(NaN);
+      for (let k = 0; k < CURVE_SAMPLES; k++) {
+        const u = k / (CURVE_SAMPLES - 1);
+        for (let c = 0; c < dim; c++) {
+          try {
+            const value = evaluate(comps[c], { ...constEnv, u, t: time });
+            out.push(isFinite(value) ? value : NaN);
+          } catch {
+            out.push(NaN);
+          }
         }
       }
-    }
     return out;
   };
   // RK4 streamline of the normalized field through (x0, y0), both directions.
@@ -529,7 +542,8 @@ function render() {
       const u = k / (CURVE_SAMPLES - 1);
       for (let c = 0; c < 3; c++) {
         try {
-          out[k * 3 + c] = evaluate(es[c], { ...constEnv, u, t: time });
+          const value = evaluate(es[c], { ...constEnv, u, t: time });
+          out[k * 3 + c] = isFinite(value) ? value : NaN;
         } catch {
           out[k * 3 + c] = NaN;
         }
@@ -556,7 +570,7 @@ function render() {
       vlo = [-r, -r, -r];
       vhi = [r, r, r];
     } else {
-      const dpr = window.devicePixelRatio || 1;
+      const dpr = pixelRatio();
       const halfW = ((canvas.clientWidth * dpr) / 2) * view.upp;
       const halfH = ((canvas.clientHeight * dpr) / 2) * view.upp;
       vlo = [view.cx - halfW, view.cy - halfH];
@@ -704,7 +718,10 @@ function render() {
       [view.cx, view.cy - halfH / 2], [view.cx, view.cy + halfH / 2],
     ];
     const env: Record<string, number> = { ...constEnv, t: time };
-    const seedOf = (a0Name?: string): number => (a0Name !== undefined ? constEnv[a0Name] : undefined) ?? 0.5;
+  const seedOf = (a0Name?: string): number => {
+    const value = a0Name !== undefined ? constEnv[a0Name] : undefined;
+    return value !== undefined && isFinite(value) ? value : 0.5;
+  };
     const levelSpacing = (f: GridField) => {
       const cupp = sampleGradMag(f, viewPts, env, view.upp * 4) * view.upp;
       return f.angular ? angularSpacing(cupp, 90) : niceSpacing(cupp, 90);
@@ -800,7 +817,12 @@ function render() {
             let started = false;
             for (let n = 0; n <= nEnd; n++) {
               const v = termAt(n);
-              if (isFinite(v)) { sum += v; started = true; }
+              if (isFinite(v)) {
+                const next = sum + v;
+                if (!isFinite(next)) break;
+                sum = next;
+                started = true;
+              }
               if (started && n >= n0 && (n - n0) % step === 0) {
                 extras.points.push({ x: n, y: sum, color: css, r: 3.5 });
               }
@@ -947,8 +969,14 @@ function render() {
           let ok = false;
           for (let step = 0; step < 10; step++) {
             const env = { ...constEnv, x, y };
-            const f = evaluate(residual, env);
-            const fy = (evaluate(residual, { ...env, y: y + Math.max(view.upp, 1e-12) }) - f) / Math.max(view.upp, 1e-12);
+            let f: number;
+            let fy: number;
+            try {
+              f = evaluate(residual, env);
+              fy = (evaluate(residual, { ...env, y: y + Math.max(view.upp, 1e-12) }) - f) / Math.max(view.upp, 1e-12);
+            } catch {
+              break;
+            }
             if (typeof f !== 'number' || typeof fy !== 'number' || !Number.isFinite(f) || !Number.isFinite(fy) || Math.abs(fy) < 1e-12) break;
             y -= f / fy;
             if (Math.abs(f) < Math.max(view.upp * 0.5, 1e-12)) { ok = Number.isFinite(y); break; }
@@ -1371,7 +1399,13 @@ function recompileAll() {
 function writeUrl() {
   const payload = encodePayload(equations.map(e => e.text));
   const suffix = location.search;
-  history.replaceState(null, '', payload ? '/g/' + payload + suffix : '/' + suffix);
+  try {
+    history.replaceState(null, '', payload ? '/g/' + payload + suffix : '/' + suffix);
+  } catch {
+    // Browsers may reject rapid history writes or URLs beyond their practical
+    // limit. The graph/editor state is already authoritative, so a stale URL
+    // is preferable to breaking the current edit.
+  }
 }
 
 // Browsers rate-limit replaceState (Safari: 100 per 10s) and throw once it is
@@ -1451,7 +1485,8 @@ let autocompleteIndex = 0;
 function hideAutocomplete() { autocomplete.hidden = true; autocomplete.replaceChildren(); autocompleteState = null; }
 function showAutocomplete() {
   const pos = caretPos(); if (!pos) { hideAutocomplete(); return; }
-  const line = lineEls()[pos.line]; const text = lineText(line); const prefix = text.slice(0, pos.offset).match(/[A-Za-z][A-Za-z0-9_]*$/)?.[0] ?? '';
+  const line = lineEls()[pos.line]; if (!line) { hideAutocomplete(); return; }
+  const text = lineText(line); const prefix = text.slice(0, pos.offset).match(/[A-Za-z][A-Za-z0-9_]*$/)?.[0] ?? '';
   const matches = getFunctionCompletions(prefix);
   if (!matches.length) { hideAutocomplete(); return; }
   autocompleteState = { line: pos.line, start: pos.offset - prefix.length, end: pos.offset };
@@ -1471,7 +1506,10 @@ function showAutocomplete() {
     autocomplete.append(item);
   }
   autocomplete.querySelector<HTMLButtonElement>('.function-suggestion')?.setAttribute('aria-selected', 'true');
-  const rect = line.getBoundingClientRect(); autocomplete.style.left = `${rect.left + 28}px`; autocomplete.style.top = `${rect.bottom + 2}px`; autocomplete.hidden = false;
+  const rect = line.getBoundingClientRect();
+  const left = Math.min(Math.max(8, rect.left + 28), Math.max(8, window.innerWidth - 268));
+  const top = Math.min(rect.bottom + 2, Math.max(8, window.innerHeight - 228));
+  autocomplete.style.left = `${left}px`; autocomplete.style.top = `${top}px`; autocomplete.hidden = false;
 }
 
 function setLineSource(line: HTMLElement, text: string): void {
@@ -2635,7 +2673,7 @@ let grab: { pt: Grabbable; dx: number; dy: number } | null = null;
 
 /** Math coordinates under a client position. */
 function toMath(clientX: number, clientY: number): [number, number] {
-  const dpr = window.devicePixelRatio || 1;
+  const dpr = pixelRatio();
   const rect = canvas.getBoundingClientRect();
   const px = (clientX - rect.left - rect.width / 2) * dpr;
   const py = (rect.height / 2 - (clientY - rect.top)) * dpr;
@@ -2646,7 +2684,7 @@ function toMath(clientX: number, clientY: number): [number, number] {
 function pointAt(clientX: number, clientY: number): Grabbable | null {
   if (mode !== '2d' || !grabbable.length) return null;
   const [mx, my] = toMath(clientX, clientY);
-  const dpr = window.devicePixelRatio || 1;
+  const dpr = pixelRatio();
   let best: Grabbable | null = null;
   let bestDist = GRAB_PX * dpr * view.upp;
   for (const p of grabbable) {
@@ -2691,7 +2729,7 @@ document.body.append(tooltip);
 /** Math units per CSS pixel and the canvas rect, for screen↔world mapping. */
 function screenMap() {
   const rect = canvas.getBoundingClientRect();
-  const uppCss = view.upp * (window.devicePixelRatio || 1);
+  const uppCss = view.upp * pixelRatio();
   return {
     rect,
     toSx: (x: number) => (x - view.cx) / uppCss + rect.width / 2,
@@ -2737,7 +2775,7 @@ function ensureSpSlot() {
 }
 
 function hoverHalfSpan() {
-  const dpr = window.devicePixelRatio || 1;
+  const dpr = pixelRatio();
   return {
     halfW: ((canvas.clientWidth * dpr) / 2) * view.upp,
     halfH: ((canvas.clientHeight * dpr) / 2) * view.upp,
@@ -2894,7 +2932,7 @@ function updateHover(clientX: number, clientY: number) {
   let geometryBest: GeometryObject | null = null;
   let bestGeometryPx = 16;
   for (const object of geometryObjects) {
-    const d = geometryDistance(hoverMath, object) / (view.upp * (window.devicePixelRatio || 1));
+    const d = geometryDistance(hoverMath, object) / (view.upp * pixelRatio());
     if (d < bestGeometryPx) { bestGeometryPx = d; geometryBest = object; }
   }
   geometryHover = geometryBest;
@@ -2980,14 +3018,15 @@ let dragMoved = false;
 
 /** Zoom by `factor` keeping the math point under (clientX, clientY) fixed. */
 function zoomAt(clientX: number, clientY: number, factor: number) {
+  if (!Number.isFinite(factor) || factor <= 0) return;
   if (mode === '2d') {
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = pixelRatio();
     const rect = canvas.getBoundingClientRect();
     const px = (clientX - rect.left - rect.width / 2) * dpr;
     const py = (rect.height / 2 - (clientY - rect.top)) * dpr;
     const mx = view.cx + px * view.upp;
     const my = view.cy + py * view.upp;
-    view.upp *= factor;
+    view.upp = Math.min(1e12, Math.max(1e-12, view.upp * factor));
     view.cx = mx - px * view.upp;
     view.cy = my - py * view.upp;
   } else {
@@ -3058,7 +3097,7 @@ canvas.addEventListener('pointermove', e => {
     const my = (a.y + b.y) / 2;
     const dx = mx - lastX;
     const dy = my - lastY;
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = pixelRatio();
     if (mode === '2d') {
       view.cx -= dx * dpr * view.upp;
       view.cy += dy * dpr * view.upp;
@@ -3090,7 +3129,7 @@ canvas.addEventListener('pointermove', e => {
   const dy = e.clientY - lastY;
   lastX = e.clientX;
   lastY = e.clientY;
-  const dpr = window.devicePixelRatio || 1;
+  const dpr = pixelRatio();
   if (mode === '2d') {
     view.cx -= dx * dpr * view.upp;
     view.cy += dy * dpr * view.upp;
@@ -3205,13 +3244,21 @@ stateResetBtn?.addEventListener('click', () => {
 });
 
 function resetGraphView() {
-  if (mode === '2d') { view.cx = 0; view.cy = 0; view.upp = 12 / Math.min(canvas.width, canvas.height); }
+  if (mode === '2d') {
+    const shortEdge = Math.min(canvas.width, canvas.height);
+    if (!(shortEdge > 0)) return;
+    view.cx = 0; view.cy = 0; view.upp = 12 / shortEdge;
+  }
   else { camera.target = [0, 0, 0]; camera.radius = 14; camera.theta = -Math.PI / 3; camera.phi = Math.PI / 5.5; }
   requestRender(); scheduleViewportWriteback();
 }
 
-document.getElementById('zoom-in')?.addEventListener('click', () => zoomAt(canvas.clientWidth / 2 + canvas.getBoundingClientRect().left, canvas.clientHeight / 2, 0.8));
-document.getElementById('zoom-out')?.addEventListener('click', () => zoomAt(canvas.clientWidth / 2 + canvas.getBoundingClientRect().left, canvas.clientHeight / 2, 1.25));
+const canvasCenter = () => {
+  const rect = canvas.getBoundingClientRect();
+  return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+};
+document.getElementById('zoom-in')?.addEventListener('click', () => { const p = canvasCenter(); zoomAt(p.x, p.y, 0.8); });
+document.getElementById('zoom-out')?.addEventListener('click', () => { const p = canvasCenter(); zoomAt(p.x, p.y, 1.25); });
 document.getElementById('home-view')?.addEventListener('click', resetGraphView);
 
 // --- theme ---
@@ -3237,15 +3284,153 @@ onThemeChange(() => {
 syncThemeToggle();
 themeToggle?.addEventListener('click', toggleTheme);
 
+// Named workspaces are local snapshots: the URL remains the share mechanism,
+// while these controls make the existing backup/state layer usable from the
+// editor. Loading restores the view and local rendering preferences too.
+const workspaceButton = document.getElementById('workspace-menu') as HTMLButtonElement | null;
+if (workspaceButton) {
+  const menu = document.createElement('div');
+  menu.className = 'workspace-popover';
+  menu.id = 'workspace-popover';
+  menu.hidden = true;
+  menu.setAttribute('role', 'dialog');
+  menu.setAttribute('aria-label', 'Workspaces');
+  workspaceButton.setAttribute('aria-haspopup', 'dialog');
+  workspaceButton.setAttribute('aria-controls', menu.id);
+  document.body.append(menu);
+
+  const title = document.createElement('strong');
+  title.textContent = 'Workspaces';
+  menu.append(title);
+
+  const list = document.createElement('div');
+  list.className = 'workspace-list';
+  menu.append(list);
+
+  const message = document.createElement('p');
+  message.className = 'workspace-message';
+  message.hidden = true;
+  menu.append(message);
+
+  const actions = document.createElement('div');
+  actions.className = 'workspace-actions';
+  menu.append(actions);
+
+  const refresh = () => {
+    list.replaceChildren();
+    const workspaces = listWorkspaces();
+    message.hidden = workspaces.length > 0;
+    message.textContent = workspaces.length ? '' : 'No saved workspaces yet.';
+    for (const workspace of workspaces) {
+      const row = document.createElement('div');
+      row.className = 'workspace-row';
+      const open = document.createElement('button');
+      open.type = 'button';
+      open.className = 'workspace-open';
+      open.textContent = workspace.name;
+      open.title = `Open ${workspace.name}`;
+      open.addEventListener('click', () => {
+        const loaded = loadWorkspace(workspace.id);
+        if (!loaded) return;
+        equations.length = 0;
+        (loaded.equations.length ? loaded.equations : ['']).forEach(text => addEquation(text));
+        if (loaded.view) Object.assign(view, loaded.view);
+        if (loaded.camera) { camera.target = [...loaded.camera.target]; camera.radius = loaded.camera.radius; camera.theta = loaded.camera.theta; camera.phi = loaded.camera.phi; }
+        if (loaded.settings) {
+          graphSettings = { ...DEFAULT_GRAPH_SETTINGS, ...loaded.settings };
+          saveGraphSettings(graphSettings);
+          syncGraphSettingsUi?.();
+        }
+        recompileAll(); renderAll(); saveUrl(true); requestRender();
+        close();
+      });
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'workspace-delete';
+      remove.textContent = '×';
+      remove.setAttribute('aria-label', `Delete ${workspace.name}`);
+      remove.addEventListener('click', () => {
+        if (!confirm(`Delete workspace “${workspace.name}”?`)) return;
+        deleteWorkspace(workspace.id);
+        refresh();
+      });
+      row.append(open, remove);
+      list.append(row);
+    }
+  };
+
+  const save = makeButton('Save current', 'Save current workspace', () => {
+    const name = prompt('Workspace name:', 'Untitled');
+    if (!name?.trim()) return;
+    saveWorkspace(name.trim(), equations.map(eq => eq.text), mode === '2d' ? { ...view } : undefined, graphSettings, mode === '3d' ? { target: [...camera.target], radius: camera.radius, theta: camera.theta, phi: camera.phi } : undefined);
+    refresh();
+  }, 'workspace-save');
+  actions.append(save);
+
+  const exportButton = makeButton('Backup', 'Export workspace backup', () => {
+    const blob = new Blob([exportWorkspaces()], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url; link.download = 'vectora-workspaces.json'; link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  }, 'workspace-backup');
+  actions.append(exportButton);
+
+  const importInput = document.createElement('input');
+  importInput.type = 'file'; importInput.accept = 'application/json,.json'; importInput.hidden = true;
+  importInput.addEventListener('change', async () => {
+    const file = importInput.files?.[0];
+    importInput.value = '';
+    if (!file) return;
+    try {
+      const count = importWorkspaces(await file.text());
+      refresh();
+      message.hidden = false;
+      message.textContent = `Imported ${count} workspace${count === 1 ? '' : 's'}.`;
+    } catch (error) {
+      message.hidden = false;
+      message.textContent = error instanceof Error ? error.message : 'Could not import that backup.';
+    }
+  });
+  document.body.append(importInput);
+  actions.append(makeButton('Restore backup', 'Import workspace backup', () => importInput.click(), 'workspace-import'));
+
+  function close(restoreFocus = false) {
+    menu.hidden = true;
+    workspaceButton!.setAttribute('aria-expanded', 'false');
+    if (restoreFocus) workspaceButton!.focus();
+  }
+  workspaceButton.addEventListener('click', () => {
+    const settings = document.querySelector<HTMLElement>('.graph-settings-popover');
+    if (settings && !settings.hidden) {
+      settings.hidden = true;
+      document.getElementById('graph-settings')?.setAttribute('aria-expanded', 'false');
+    }
+    menu.hidden = !menu.hidden;
+    workspaceButton.setAttribute('aria-expanded', String(!menu.hidden));
+    if (!menu.hidden) {
+      refresh();
+      save.focus();
+    }
+  });
+  document.addEventListener('keydown', event => { if (event.key === 'Escape' && !menu.hidden) { close(true); event.preventDefault(); } });
+  document.addEventListener('pointerdown', event => {
+    if (!menu.hidden && event.target instanceof Node && !menu.contains(event.target) && event.target !== workspaceButton) close();
+  });
+}
+
 // Compact graph settings; state is local and never changes the shared URL.
 const settingsButton = document.getElementById('graph-settings');
 if (settingsButton) {
   const settings = document.createElement('div'); settings.className = 'graph-settings-popover'; settings.hidden = true;
+  settings.id = 'graph-settings-popover';
   settings.setAttribute('role', 'dialog'); settings.setAttribute('aria-label', 'Graph settings');
+  settingsButton.setAttribute('aria-haspopup', 'dialog');
+  settingsButton.setAttribute('aria-controls', settings.id);
   const title = document.createElement('strong'); title.textContent = 'Graph settings'; settings.append(title);
   const addSetting = (key: 'grid' | 'axes' | 'labels' | 'points' | 'snap', label: string) => {
     const row = document.createElement('label'); row.className = 'graph-setting';
-    const input = document.createElement('input'); input.type = 'checkbox'; input.checked = graphSettings[key]; input.addEventListener('change', () => { graphSettings = { ...graphSettings, [key]: input.checked }; saveGraphSettings(graphSettings); requestRender(); });
+    const input = document.createElement('input'); input.type = 'checkbox'; input.checked = graphSettings[key]; input.setAttribute('aria-label', label); input.addEventListener('change', () => { graphSettings = { ...graphSettings, [key]: input.checked }; saveGraphSettings(graphSettings); requestRender(); });
     row.append(input, document.createTextNode(label)); settings.append(row);
   };
   addSetting('grid', 'Grid'); addSetting('axes', 'Axes'); addSetting('labels', 'Axis labels'); addSetting('points', 'Points and markers');
@@ -3260,8 +3445,28 @@ if (settingsButton) {
   const reset = makeButton('Reset', 'Reset graph settings', () => { graphSettings = { ...DEFAULT_GRAPH_SETTINGS }; saveGraphSettings(graphSettings); settings.querySelectorAll<HTMLInputElement>('input').forEach((input, i) => { input.checked = [graphSettings.grid, graphSettings.axes, graphSettings.labels, graphSettings.points, graphSettings.snap][i]; }); angleSelect.value = graphSettings.angleUnit; requestRender(); }, 'graph-settings-reset');
   settings.append(reset); document.body.append(settings);
   syncGraphSettingsUi = () => { settings.querySelectorAll<HTMLInputElement>('input').forEach((input, i) => { input.checked = [graphSettings.grid, graphSettings.axes, graphSettings.labels, graphSettings.points, graphSettings.snap][i]; }); angleSelect.value = graphSettings.angleUnit; };
-  settingsButton.addEventListener('click', () => { settings.hidden = !settings.hidden; settingsButton.setAttribute('aria-expanded', String(!settings.hidden)); });
+  settingsButton.addEventListener('click', () => {
+    settings.hidden = !settings.hidden;
+    settingsButton.setAttribute('aria-expanded', String(!settings.hidden));
+    if (!settings.hidden) settings.querySelector<HTMLElement>('input, select, button')?.focus();
+  });
   settingsButton.setAttribute('aria-expanded', 'false');
+  settingsButton.addEventListener('click', () => {
+    if (settings.hidden) return;
+    const workspace = document.querySelector<HTMLElement>('.workspace-popover');
+    if (workspace && !workspace.hidden) {
+      workspace.hidden = true;
+      document.getElementById('workspace-menu')?.setAttribute('aria-expanded', 'false');
+    }
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key !== 'Escape') return;
+    if (settings.hidden) return;
+    settings.hidden = true;
+    settingsButton.setAttribute('aria-expanded', 'false');
+    settingsButton.focus();
+    event.preventDefault();
+  });
   document.addEventListener('pointerdown', event => { if (!settings.hidden && event.target instanceof Node && !settings.contains(event.target) && event.target !== settingsButton) { settings.hidden = true; settingsButton.setAttribute('aria-expanded', 'false'); } });
 }
 
@@ -3334,6 +3539,7 @@ function clearWorkspace() {
 }
 function saveSvg() {
   const width = canvas.clientWidth, height = canvas.clientHeight;
+  if (!(width > 0 && height > 0 && canvas.width > 0 && canvas.height > 0)) return;
   const escape = (value: string) => value.replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[ch]!));
   const composite = document.createElement('canvas');
   composite.width = canvas.width; composite.height = canvas.height;
@@ -3342,16 +3548,16 @@ function saveSvg() {
   gl.finish();
   context.drawImage(canvas, 0, 0); context.drawImage(overlay, 0, 0);
   const image = composite.toDataURL('image/png');
-  const sx = (x: number) => (x - view.cx) / (view.upp * (window.devicePixelRatio || 1)) + width / 2;
-  const sy = (y: number) => height / 2 - (y - view.cy) / (view.upp * (window.devicePixelRatio || 1));
+  const sx = (x: number) => (x - view.cx) / (view.upp * pixelRatio()) + width / 2;
+  const sy = (y: number) => height / 2 - (y - view.cy) / (view.upp * pixelRatio());
   const vectorOverlay = lastOverlayExtras.polylines.map(line => {
     const points = [];
     for (let i = 0; i + 1 < line.pts.length; i += 2) points.push(`${sx(line.pts[i])},${sy(line.pts[i + 1])}`);
     if (points.length < 2) return '';
     const tag = line.closed ? 'polygon' : 'polyline';
-    return `<${tag} points="${points.join(' ')}" fill="${line.fill ?? 'none'}" stroke="${escape(line.color)}" stroke-width="${line.width ?? 1.5}" stroke-linejoin="round" stroke-linecap="round"/>`;
+      return `<${tag} points="${points.join(' ')}" fill="${escape(line.fill ?? 'none')}" stroke="${escape(line.color)}" stroke-width="${line.width ?? 1.5}" stroke-linejoin="round" stroke-linecap="round"/>`;
   }).join('');
-  const dpr = window.devicePixelRatio || 1;
+  const dpr = pixelRatio();
   const contourBounds = {
     xlo: view.cx - width * view.upp * dpr / 2,
     xhi: view.cx + width * view.upp * dpr / 2,
@@ -3381,7 +3587,7 @@ function saveSvg() {
   const vectorGeometry = [...geometryAnalysis.objects, ...geometryAnalysis.derived].map(object => {
     const stroke = escape(geometryColor(object));
     if (object.kind === 'point') return `<circle cx="${sx(object.point.x)}" cy="${sy(object.point.y)}" r="4" fill="${stroke}"/>`;
-    if (object.kind === 'circle') return `<circle cx="${sx(object.center.x)}" cy="${sy(object.center.y)}" r="${object.radius / (view.upp * (window.devicePixelRatio || 1))}" fill="none" stroke="${stroke}" stroke-width="1.75"/>`;
+    if (object.kind === 'circle') return `<circle cx="${sx(object.center.x)}" cy="${sy(object.center.y)}" r="${object.radius / (view.upp * pixelRatio())}" fill="none" stroke="${stroke}" stroke-width="1.75"/>`;
     if (object.kind === 'polygon') {
       const points = object.points.map(point => `${sx(point.x)},${sy(point.y)}`).join(' ');
       return `<polygon points="${points}" fill="none" stroke="${stroke}" stroke-width="1.75" stroke-linejoin="round"/>`;
@@ -3389,7 +3595,7 @@ function saveSvg() {
     if (object.kind === 'line' || object.kind === 'ray' || object.kind === 'segment') {
       const dx = object.b.x - object.a.x, dy = object.b.y - object.a.y;
       const length = Math.hypot(dx, dy); if (length <= 1e-12) return '';
-      const extent = Math.max(width, height) * view.upp * (window.devicePixelRatio || 1) * 2;
+      const extent = Math.max(width, height) * view.upp * pixelRatio() * 2;
       const from = object.kind === 'line' ? -extent : 0;
       const to = object.kind === 'segment' ? length : extent;
       return `<line x1="${sx(object.a.x + dx / length * from)}" y1="${sy(object.a.y + dy / length * from)}" x2="${sx(object.a.x + dx / length * to)}" y2="${sy(object.a.y + dy / length * to)}" stroke="${stroke}" stroke-width="1.75" stroke-linecap="round"/>`;

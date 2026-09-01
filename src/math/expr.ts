@@ -317,6 +317,9 @@ ops['[neg]'].prec = ops['^'].prec;
 for (const k of ['<=', '≤', '>', '>=', '≥']) ops[k].prec = ops['<'].prec;
 
 const MULTI_CHAR_OPS = Object.keys(ops).filter(o => o.length > 1);
+const MAX_EXPRESSION_LENGTH = 100_000;
+const MAX_AST_DEPTH = 512;
+const MAX_AST_NODES = 200_000;
 
 const syntax: PatternDict = {
   parenopen: /^[\(\{\[]$/,
@@ -346,16 +349,23 @@ function *normalizeTokens(bare: Iterable<Token>): Iterable<Token> {
   let held: Token | null = null;
   let previous: Token | null = null;
   const tokens = [...bare];
+  const nextSignificant: Array<Token | undefined> = new Array(tokens.length);
+  let next: Token | undefined;
+  for (let i = tokens.length - 1; i >= 0; i--) {
+    nextSignificant[i] = next;
+    if (tokens[i].type !== 'whitespace') next = tokens[i];
+  }
   for (let index = 0; index < tokens.length; index++) {
     let token = tokens[index];
     if (token.type === 'symbol' && SYMBOL_ALIASES[token.str]) {
       token = { ...token, str: SYMBOL_ALIASES[token.str] };
     }
-    const next = tokens.slice(index + 1).find(t => t.type !== 'whitespace');
+    const next = nextSignificant[index];
     const compactMultiply = previous?.type === 'number' && token.type === 'symbol' ? /^x(\d+)$/.exec(token.str) : null;
     if (compactMultiply) {
       const number = { ...token, type: 'number' as const, str: compactMultiply[1] };
       tokens.splice(index + 1, 0, number);
+      nextSignificant.splice(index + 1, 0, nextSignificant[index]);
       token = { ...token, type: 'operator', str: '*' };
     } else if (previous?.type === 'number' && token.type === 'symbol' && token.str === 'x' && next?.type === 'number') token = { ...token, type: 'operator', str: '*' };
     if (held) {
@@ -434,6 +444,28 @@ function *addImplicitTokens(bare: Iterable<Token>): Iterable<Token> {
   }
 }
 
+/** Keep recursive AST consumers below ordinary browser call-stack limits. */
+function validateAstComplexity(root: Expr): void {
+  const pending: Array<{ node: Expr; depth: number }> = [{ node: root, depth: 1 }];
+  let nodes = 0;
+  while (pending.length) {
+    const { node, depth } = pending.pop()!;
+    if (++nodes > MAX_AST_NODES) throw new Error('Expression is too complex (too many terms).');
+    if (depth > MAX_AST_DEPTH) throw new Error('Expression is too deeply nested (limit 512 levels).');
+    switch (node.kind) {
+      case 'neg': pending.push({ node: node.a, depth: depth + 1 }); break;
+      case 'bin': pending.push({ node: node.a, depth: depth + 1 }, { node: node.b, depth: depth + 1 }); break;
+      case 'call': for (const arg of node.args) pending.push({ node: arg, depth: depth + 1 }); break;
+      case 'eq': case 'ineq': pending.push({ node: node.l, depth: depth + 1 }, { node: node.r, depth: depth + 1 }); break;
+      case 'vec': case 'list': for (const item of node.items) pending.push({ node: item, depth: depth + 1 }); break;
+      case 'piecewise':
+        for (const part of node.cases) pending.push({ node: part.cond, depth: depth + 1 }, { node: part.value, depth: depth + 1 });
+        if (node.otherwise) pending.push({ node: node.otherwise, depth: depth + 1 });
+        break;
+    }
+  }
+}
+
 function createLeaf(token: Token): PNode {
   if (token.type === 'number') return num(Number(token.str));
   if (token.type === 'parenopen') return { kind: 'popen', bracket: token.str, call: !!token.call };
@@ -449,6 +481,8 @@ function createLeaf(token: Token): PNode {
  * Names in userFns parse as function calls (`f(x+1)`) instead of products.
  */
 export function parseExpr(str: string, userFns: ReadonlySet<string> = new Set()): Expr {
+  if (typeof str !== 'string') throw new Error('Expression must be text.');
+  if (str.length > MAX_EXPRESSION_LENGTH) throw new Error('Expression is too long (limit 100000 characters).');
   activeUserFns = userFns;
   try {
     const tokens = addImplicitTokens(normalizeTokens(tokenize(str)));
@@ -463,8 +497,9 @@ export function parseExpr(str: string, userFns: ReadonlySet<string> = new Set())
     if (stack.length !== 1) throw new Error('Incomplete expression.');
     const top = stack[0];
     // A bare top-level comma series (no parens) still reads as a vector.
-    if (top.kind === 'series') return seriesToVec(top.items);
-    return asExpr(top);
+    const result = top.kind === 'series' ? seriesToVec(top.items) : asExpr(top);
+    validateAstComplexity(result);
+    return result;
   } finally {
     activeUserFns = new Set();
   }

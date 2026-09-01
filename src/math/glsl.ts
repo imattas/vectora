@@ -125,13 +125,34 @@ float eq_pow(float a, float b) {
 }
 // Complex arithmetic on vec2(re, im).
 vec2 c_mul(vec2 a, vec2 b) { return vec2(a.x*b.x - a.y*b.y, a.x*b.y + a.y*b.x); }
-vec2 c_div(vec2 a, vec2 b) { return vec2(a.x*b.x + a.y*b.y, a.y*b.x - a.x*b.y) / dot(b, b); }
-vec2 c_ln(vec2 z) { return vec2(0.5 * log(dot(z, z)), atan(z.y, z.x)); }
+float c_abs(vec2 z) {
+  float s = max(abs(z.x), abs(z.y));
+  return s == 0.0 ? 0.0 : s * sqrt(dot(z / s, z / s));
+}
+vec2 c_div(vec2 a, vec2 b) {
+  float sa = max(abs(a.x), abs(a.y));
+  float sb = max(abs(b.x), abs(b.y));
+  if (sb == 0.0) return vec2(sqrt(-1.0));
+  if (sa == 0.0) return vec2(0.0);
+  vec2 p = a / sa;
+  vec2 q = b / sb;
+  float den = dot(q, q);
+  return (sa / sb) * vec2(p.x*q.x + p.y*q.y, p.y*q.x - p.x*q.y) / den;
+}
+vec2 c_ln(vec2 z) {
+  float s = max(abs(z.x), abs(z.y));
+  if (s == 0.0) return vec2(sqrt(-1.0));
+  vec2 q = z / s;
+  return vec2(log(s) + 0.5 * log(dot(q, q)), atan(z.y, z.x));
+}
 vec2 c_exp(vec2 z) { return exp(z.x) * vec2(cos(z.y), sin(z.y)); }
 vec2 c_pow(vec2 a, vec2 b) { return c_exp(c_mul(b, c_ln(a))); }
 vec2 c_sqrt(vec2 z) {
-  float r = length(z);
-  return vec2(sqrt(0.5 * (r + z.x)), sign(z.y) * sqrt(0.5 * (r - z.x)));
+  float s = max(abs(z.x), abs(z.y));
+  if (s == 0.0) return vec2(0.0);
+  vec2 q = z / s;
+  float r = sqrt(dot(q, q));
+  return vec2(sqrt(0.5 * s * (r + q.x)), sign(z.y) * sqrt(0.5 * s * (r - q.x)));
 }
 vec2 c_log10(vec2 z) { return c_ln(z) * 0.4342944819032518; }
 vec2 c_sin(vec2 z) { return vec2(sin(z.x) * cosh(z.y), cos(z.x) * sinh(z.y)); }

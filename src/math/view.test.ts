@@ -34,6 +34,7 @@ describe('parseViewRow', () => {
     expect(() => parse('view(z = 1..2)')).toThrow(/x and y/);
     expect(() => parse('view(x = 5..-5)')).toThrow(/lo < hi/);
     expect(() => parse('view(x = 1..2, x = 3..4)')).toThrow(/twice/);
+    expect(() => parse('view(x = -a..a)', { a: Number.MAX_VALUE })).toThrow(/finite/i);
     expect(() => parse('view(x = 1)')).toThrow(/Expected view/);
     expect(() => parse('view(x = q..2)')).toThrow(/lower bound/);
     expect(() => parse('camera(1)')).toThrow(/Expected camera/);
@@ -43,6 +44,19 @@ describe('parseViewRow', () => {
 });
 
 describe('fitView2D', () => {
+  it('rejects unusable viewport dimensions', () => {
+    const spec = { kind: 'view' as const, x: [0, 1] as [number, number] };
+    expect(() => fitView2D(spec, 0, 100)).toThrow(/dimensions/i);
+    expect(() => fitView2D(spec, 100, Infinity)).toThrow(/dimensions/i);
+    expect(() => fitView2D({ kind: 'view', x: [-1e308, 1e308] }, 100, 100)).toThrow(/span/i);
+  });
+
+  it('keeps large finite view centers finite', () => {
+    const view = fitView2D({ kind: 'view', x: [1e308, 1.5e308] }, 1000, 800);
+    expect(Number.isFinite(view.cx)).toBe(true);
+    expect(view.cx).toBeCloseTo(1.25e308, 12);
+  });
+
   it('fits the whole box at uniform scale, centered', () => {
     // A 10×4 box in a 100×100 viewport: x is the binding axis.
     const v = fitView2D({ kind: 'view', x: [0, 10], y: [-2, 2] }, 100, 100);

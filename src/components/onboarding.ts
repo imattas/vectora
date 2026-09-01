@@ -22,13 +22,15 @@ export function initOnboarding({ initiallyOpen }: OnboardingOptions): void {
   if (!help) return;
   const dialog = document.createElement('dialog');
   dialog.className = 'onboarding-dialog';
+  dialog.setAttribute('aria-labelledby', 'onboarding-title');
+  dialog.setAttribute('aria-describedby', 'onboarding-body');
   const shell = document.createElement('div'); shell.className = 'onboarding-shell';
   const close = document.createElement('button'); close.className = 'onboarding-close'; close.type = 'button'; close.textContent = '×'; close.setAttribute('aria-label', 'Close onboarding');
   const content = document.createElement('div');
   const footer = document.createElement('div'); footer.className = 'onboarding-footer';
   shell.append(close, content, footer); dialog.append(shell); document.body.append(dialog);
   let step = -1;
-  const finish = () => { markDone(); dialog.close(); };
+  const finish = () => { markDone(); if (dialog.open) dialog.close(); help.focus(); };
   const render = () => {
     content.replaceChildren(); footer.replaceChildren();
     if (step < 0) {
@@ -52,7 +54,7 @@ export function initOnboarding({ initiallyOpen }: OnboardingOptions): void {
     const next = document.createElement('button'); next.className = 'onboarding-primary'; next.type = 'button'; next.textContent = step === STEPS.length - 1 ? 'Finish' : 'Next'; next.onclick = step === STEPS.length - 1 ? finish : () => { step++; render(); };
     content.append(eyebrow, h, p, hint, progress); footer.append(back, skip, next); next.focus();
   };
-  const open = () => { step = -1; render(); dialog.showModal(); };
+  const open = () => { step = -1; dialog.showModal(); render(); };
   close.onclick = finish;
   dialog.addEventListener('cancel', event => { event.preventDefault(); finish(); });
   dialog.addEventListener('click', event => { if (event.target === dialog) finish(); });

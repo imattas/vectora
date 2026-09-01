@@ -6,6 +6,7 @@
     "test": "vitest",
     "coverage": "vitest run --coverage",
     "web": "vite",
+    "build": "vite build",
     "web:build": "vite build",
     "icons": "node scripts/icons.ts",
     "typecheck": "tsc --noEmit && tsc -p src/ui --noEmit",
@@ -21,6 +22,7 @@
   },
   "devDependencies": {
     "@types/node": "^26.2.0",
+    "@vitest/coverage-v8": "4.1.10",
     "playwright": "^1.62.1",
     "typescript": "^7.0.2",
     "vite": "^8.2.1",

@@ -37,6 +37,15 @@ function evalExpr(e: Expr, env: Record<string, number>): number {
 const evl = (s: string, env: Record<string, number> = {}) => evalExpr(parseExpr(s), env);
 
 describe('parseExpr', () => {
+  it('rejects malformed runtime input and oversized expressions cleanly', () => {
+    expect(() => parseExpr(null as unknown as string)).toThrow(/text/i);
+    expect(() => parseExpr('x'.repeat(100_001))).toThrow(/too long/i);
+  });
+
+  it('rejects ASTs that are too deeply nested for recursive consumers', () => {
+    expect(() => parseExpr(Array.from({ length: 600 }, () => 'x').join('+'))).toThrow(/deeply nested/i);
+  });
+
   it('parses arithmetic with precedence', () => {
     expect(evl('1+2*3')).toBe(7);
     expect(evl('(1+2)*3')).toBe(9);
@@ -146,6 +155,13 @@ describe('parseExpr', () => {
 });
 
 describe('toGLSL', () => {
+  it('uses scaled complex helpers for finite extreme values', () => {
+    expect(GLSL_PRELUDE).toContain('float c_abs(vec2 z)');
+    expect(GLSL_PRELUDE).toContain('vec2 p = a / sa;');
+    expect(GLSL_PRELUDE).toContain('vec2 q = b / sb;');
+    expect(GLSL_PRELUDE).toContain('log(s) + 0.5 * log(dot(q, q))');
+  });
+
   it('emits float literals', () => {
     expect(toGLSL(parseExpr('1+2'))).toBe('(1.0 + 2.0)');
     expect(toGLSL(parseExpr('1.5'))).toBe('1.5');

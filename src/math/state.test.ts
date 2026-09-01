@@ -88,12 +88,28 @@ describe('integration', () => {
     expect(isFinite(values.a)).toBe(true);
   });
 
+  it('does not advance the clock past a failed RK stage', () => {
+    const { defs, sys } = run(["a' = 1/0", 'a(0) = 2'], 0);
+    const values = initialState(defs, sys);
+    expect(advanceState(defs, sys, values, 0, 1)).toBe(0);
+    expect(values.a).toBe(2);
+  });
+
   it('runs slow rather than freezing on a huge time gap', () => {
     // A backgrounded tab hands back minutes at once; the step cap bounds work.
     const { defs, sys } = run(["a' = 1"], 0);
     const values = initialState(defs, sys);
     expect(advanceState(defs, sys, values, 0, 600)).toBe(600);
     expect(values.a).toBeCloseTo(0.25, 6); // 60 steps of 1/240 s
+  });
+
+  it('normalizes invalid clocks and starting values', () => {
+    const { defs, sys } = run(["a' = 1"], 0);
+    const values = { a: NaN };
+    expect(advanceState(defs, sys, values, NaN, 1 / 60)).toBeCloseTo(1 / 60, 12);
+    expect(values.a).toBeCloseTo(1 / 60, 8);
+    expect(advanceState(defs, sys, values, 1 / 60, Infinity)).toBeCloseTo(1 / 60, 12);
+    expect(advanceState(defs, sys, values, 1 / 60, 0)).toBeCloseTo(1 / 60, 12);
   });
 });
 

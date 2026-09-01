@@ -283,7 +283,11 @@ export function probabilityValue(
   hi: Expr | undefined,
   env: Record<string, number>,
 ): number {
-  return (hi ? cdf(d, evaluate(hi, env), env) : 1) - (lo ? cdf(d, evaluate(lo, env), env) : 0);
+  const lower = lo ? evaluate(lo, env) : -Infinity;
+  const upper = hi ? evaluate(hi, env) : Infinity;
+  const value = cdf(d, upper, env) - cdf(d, lower, env);
+  if (Number.isNaN(value)) return NaN;
+  return lower >= upper ? 0 : Math.max(0, Math.min(1, value));
 }
 
 // --- row scanning ---
@@ -609,20 +613,30 @@ function visualWindow(pool: ArrayLike<number>, lo0: number, hi0: number): [numbe
 
 function estimateCurve(col: Float64Array): DensityCurve | null {
   let finite: number[] = [];
-  let sum = 0;
+  let scale = 0;
   for (let i = 0; i < col.length; i++) {
     const x = col[i];
     if (isFinite(x)) {
       finite.push(x);
-      sum += x;
+      scale = Math.max(scale, Math.abs(x));
     }
   }
   const n = finite.length;
   if (n < 16) return null;
-  const mean = sum / n;
+  // Scale before accumulating: finite values can still overflow a direct sum
+  // (for example, a symmetric sample around +/-1e308).
+  const scaled = scale > 0 ? finite.map(x => x / scale) : finite;
+  let sum = 0;
+  for (const x of scaled) sum += x;
+  const mean = scale > 0 ? scale * (sum / n) : 0;
   let ss = 0;
-  for (const x of finite) ss += (x - mean) * (x - mean);
-  const sd = Math.sqrt(ss / n);
+  const meanScaled = scale > 0 ? mean / scale : 0;
+  for (const x of scaled) {
+    const d = x - meanScaled;
+    ss += d * d;
+  }
+  const sd = scale * Math.sqrt(ss / n);
+  if (!Number.isFinite(mean) || !Number.isFinite(sd)) return null;
   const mass = n / col.length;
   // Whether the moments are trustworthy is a question about the WHOLE law, so
   // it is asked of the same population `sd` was computed from — before the
@@ -661,13 +675,15 @@ function estimateCurve(col: Float64Array): DensityCurve | null {
   // Quantiles from a decimated sort: plenty for a range and bandwidth.
   const sub = Float64Array.from(finite.filter((_, i) => i % Math.ceil(cn / 4096) === 0)).sort();
   const q = quantileOf(sub);
-  const spread = Math.min(sd, (q(0.75) - q(0.25)) / 1.349);
-  if (!(spread > 0)) return { pts: [], atoms, mean, sd, mass, robust }; // no continuous spread
+  const qSpread = (q(0.75) - q(0.25)) / 1.349;
+  const spread = Math.min(sd, qSpread);
+  if (!(spread > 0) || !Number.isFinite(spread)) return { pts: [], atoms, mean, sd, mass, robust }; // no continuous spread
   // 1.4× Silverman's rule. His 0.9 factor is MISE-optimal for i.i.d. draws;
   // measured on these stratified columns, ~1.4× lowers BOTH the sup-error and
   // the curve's residual wobble (second-difference energy ÷2.4) — smoothness
   // is what the plotted line is judged by.
   const h = 1.26 * spread * Math.pow(cn, -0.2);
+  if (!(h > 0) || !Number.isFinite(h)) return { pts: [], atoms, mean, sd, mass, robust };
   // Drawn range: trim the extreme tails, but never past the observed support.
   // An end the trim does not reach is the support edge itself — beyond it the
   // density is truly zero, so a truncated variable like {X > 1: X, 0} has to
@@ -687,6 +703,9 @@ function estimateCurve(col: Float64Array): DensityCurve | null {
   if (hardHi) hi = x1;
   const B = 512;
   const dx = (hi - lo) / B;
+  if (!Number.isFinite(lo) || !Number.isFinite(hi) || !(dx > 0) || !Number.isFinite(dx)) {
+    return { pts: [], atoms, mean, sd, mass, robust };
+  }
   const hist = new Float64Array(B + 1);
   const w = 1 / (col.length * dx);
   let inWindow = 0;
@@ -761,6 +780,7 @@ function estimateCurve(col: Float64Array): DensityCurve | null {
     pts.push(lo + j * dx, y);
   }
   if (hardHi) pts.push(hi, 0);
+  if (!pts.every(Number.isFinite)) return { pts: [], atoms, mean, sd, mass, robust };
   // The curve's area is the probability of the drawn range — the promise a
   // density plot makes. Smoothing and the edge corrections each perturb it a
   // little (and at an integrable singularity, where no local polynomial fit
@@ -769,10 +789,15 @@ function estimateCurve(col: Float64Array): DensityCurve | null {
   for (let i = 0; i + 3 < pts.length; i += 2) {
     area += ((pts[i + 1] + pts[i + 3]) / 2) * (pts[i + 2] - pts[i]);
   }
-  if (area > 0) {
+  if (area > 0 && Number.isFinite(area)) {
     const k = inWindow / area;
-    for (let i = 1; i < pts.length; i += 2) pts[i] *= k;
+    if (Number.isFinite(k)) {
+      for (let i = 1; i < pts.length; i += 2) pts[i] *= k;
+    } else {
+      return { pts: [], atoms, mean, sd, mass, robust };
+    }
   }
+  if (!pts.every(Number.isFinite)) return { pts: [], atoms, mean, sd, mass, robust };
   return { pts, atoms, mean, sd, mass, robust };
 }
 
@@ -1140,9 +1165,10 @@ function condAssemble(base: QCBase): DensityCurve {
 
 /** Linear interpolation of a density polyline at x (0 outside its range). */
 export function densityAt(curve: DensityCurve, x: number): number {
+  if (!Number.isFinite(x)) return 0;
   const p = curve.pts;
   for (let i = 0; i + 3 < p.length; i += 2) {
-    if (x >= p[i] && x <= p[i + 2]) {
+    if ([p[i], p[i + 1], p[i + 2], p[i + 3]].every(Number.isFinite) && x >= p[i] && x <= p[i + 2]) {
       const f = (x - p[i]) / (p[i + 2] - p[i] || 1);
       return p[i + 1] + f * (p[i + 3] - p[i + 1]);
     }
@@ -1154,14 +1180,14 @@ export function densityAt(curve: DensityCurve, x: number): number {
  *  polygon a Monte Carlo `P(…)` row fills. Null when the clip is empty. */
 export function shadePolygon(curve: DensityCurve, lo?: number, hi?: number): number[] | null {
   const p = curve.pts;
-  if (p.length < 4) return null;
+  if (p.length < 4 || p.length % 2 !== 0) return null;
   const xlo = lo ?? p[0];
   const xhi = hi ?? p[p.length - 2];
-  if (!(xhi > xlo)) return null;
+  if (![xlo, xhi].every(Number.isFinite) || !(xhi > xlo)) return null;
   const yAt = (x: number): number => densityAt(curve, x);
   const out: number[] = [xlo, 0, xlo, yAt(xlo)];
   for (let i = 0; i < p.length; i += 2) {
-    if (p[i] > xlo && p[i] < xhi) out.push(p[i], p[i + 1]);
+    if (Number.isFinite(p[i]) && Number.isFinite(p[i + 1]) && p[i] > xlo && p[i] < xhi) out.push(p[i], p[i + 1]);
   }
   out.push(xhi, yAt(xhi), xhi, 0);
   return out;
@@ -1976,15 +2002,20 @@ export class RVSystem {
     const c = this.curve(name, env);
     if (c) return c.mean;
     const col = this.columns(name, env);
-    let sum = 0;
+    let scale = 0;
     let n = 0;
     for (let i = 0; i < col.length; i++) {
       if (isFinite(col[i])) {
-        sum += col[i];
+        scale = Math.max(scale, Math.abs(col[i]));
         n++;
       }
     }
-    return n ? sum / n : NaN;
+    if (!n) return NaN;
+    if (scale === 0) return 0;
+    let sum = 0;
+    for (let i = 0; i < col.length; i++) if (isFinite(col[i])) sum += col[i] / scale;
+    const mean = scale * (sum / n);
+    return Number.isFinite(mean) ? mean : NaN;
   }
 
   /** Exact P(lo < name < hi) under the variable's law, or null when sampled. */
@@ -2000,7 +2031,11 @@ export class RVSystem {
     const pp = this.usumPP(law, env);
     if (!pp) return NaN;
     const total = cdfPP(pp, pp.breaks[pp.breaks.length - 1]);
-    return (hi ? cdfPP(pp, evaluate(hi, env)) : total) - (lo ? cdfPP(pp, evaluate(lo, env)) : 0);
+    const lower = lo ? evaluate(lo, env) : -Infinity;
+    const upper = hi ? evaluate(hi, env) : Infinity;
+    const value = (hi ? cdfPP(pp, upper) : total) - cdfPP(pp, lower);
+    if (Number.isNaN(value)) return NaN;
+    return lower >= upper ? 0 : Math.max(0, Math.min(1, value));
   }
 
   /**

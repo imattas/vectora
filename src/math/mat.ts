@@ -49,9 +49,18 @@ export function matrixFromList(e: Expr): Mat | null {
   return rows;
 }
 
+function assertMat(m: Mat): number {
+  const n = m.length;
+  if ((n !== 2 && n !== 3) || m.some(row => row.length !== n)) {
+    throw new Error('Matrix operations require a 2×2 or 3×3 square matrix.');
+  }
+  return n;
+}
+
 /** det for side 2 or 3 (cofactor expansion along the first row). */
 export function detOf(m: Mat): Expr {
-  if (m.length === 2) return sub(mul(m[0][0], m[1][1]), mul(m[0][1], m[1][0]));
+  const n = assertMat(m);
+  if (n === 2) return sub(mul(m[0][0], m[1][1]), mul(m[0][1], m[1][0]));
   const minor = (r0: number, r1: number, c0: number, c1: number): Expr =>
     sub(mul(m[r0][c0], m[r1][c1]), mul(m[r0][c1], m[r1][c0]));
   return add(
@@ -61,6 +70,7 @@ export function detOf(m: Mat): Expr {
 }
 
 export function traceOf(m: Mat): Expr {
+  assertMat(m);
   let s = m[0][0];
   for (let k = 1; k < m.length; k++) s = add(s, m[k][k]);
   return s;
@@ -68,6 +78,8 @@ export function traceOf(m: Mat): Expr {
 
 /** M v, componentwise dot products. */
 export function matVec(m: Mat, v: Expr[]): Expr[] {
+  const n = assertMat(m);
+  if (v.length !== n) throw new Error(`Matrix-vector multiplication needs ${n} components.`);
   return m.map(row => {
     let s = mul(row[0], v[0]);
     for (let k = 1; k < v.length; k++) s = add(s, mul(row[k], v[k]));
@@ -81,6 +93,8 @@ export function matVec(m: Mat, v: Expr[]): Expr[] {
  * time, which the consumers already treat as "hold the last good value".
  */
 export function solveVec(m: Mat, v: Expr[]): Expr[] {
+  const n = assertMat(m);
+  if (v.length !== n) throw new Error(`A ${n}×${n} system needs ${n} right-hand components.`);
   const d = detOf(m);
   return v.map((_, i) => {
     const mi = m.map((row, r) => row.map((entry, c) => (c === i ? v[r] : entry)));

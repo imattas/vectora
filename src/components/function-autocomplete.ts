@@ -6,5 +6,6 @@ export const COMPLETIONS = [...FUNCTIONS, 'line', 'segment', 'ray', 'circle', 'p
 export function getFunctionCompletions(prefix: string, limit = 8): string[] {
   const query = prefix.toLowerCase();
   if (!query) return [];
-  return COMPLETIONS.filter(name => name.toLowerCase().startsWith(query)).slice(0, limit);
+  const count = Number.isFinite(limit) ? Math.max(0, Math.floor(limit)) : 8;
+  return COMPLETIONS.filter(name => name.toLowerCase().startsWith(query)).slice(0, count);
 }

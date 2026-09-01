@@ -75,7 +75,9 @@ const ANGULAR_MAJORS = [
 
 /** Angular analogue of niceSpacing: cupp is coordinate units per pixel. */
 export function angularSpacing(cupp: number, minPx: number): { major: number; minor: number } {
-  const target = cupp * minPx;
+  const unitPerPixel = Number.isFinite(cupp) && cupp > 0 ? cupp : 1;
+  const pixelTarget = Number.isFinite(minPx) && minPx > 0 ? minPx : 40;
+  const target = unitPerPixel * pixelTarget;
   for (const m of ANGULAR_MAJORS) {
     if (m >= target) return { major: m, minor: m / 4 };
   }
@@ -93,6 +95,7 @@ export function sampleGradMag(
   env: Record<string, number>,
   h: number,
 ): number {
+  const step = Number.isFinite(h) && h > 0 ? h : 1e-3;
   const mags: number[] = [];
   for (const [x, y] of pts) {
     let gx: number;
@@ -103,8 +106,8 @@ export function sampleGradMag(
         gy = evaluate(f.grad[1], { ...env, x, y });
       } else {
         const ev = (px: number, py: number) => evaluate(f.expr, { ...env, x: px, y: py });
-        gx = (ev(x + h, y) - ev(x - h, y)) / (2 * h);
-        gy = (ev(x, y + h) - ev(x, y - h)) / (2 * h);
+        gx = (ev(x + step, y) - ev(x - step, y)) / (2 * step);
+        gy = (ev(x, y + step) - ev(x, y - step)) / (2 * step);
       }
     } catch {
       continue;

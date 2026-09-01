@@ -60,7 +60,8 @@ function numericRoots(f: Expr, v: string, lo: number, hi: number): FoundRoot[] |
         return evaluate(dfExpr, { [v]: x });
       } catch { /* fall through to finite differences */ }
     }
-    const h = 6e-6 * (1 + Math.abs(x));
+    const h = 6e-6 * Math.max(1, Math.abs(x));
+    if (!isFinite(h)) return NaN;
     return (ev(x + h) - ev(x - h)) / (2 * h);
   };
 
@@ -68,8 +69,14 @@ function numericRoots(f: Expr, v: string, lo: number, hi: number): FoundRoot[] |
   const ys = new Float64Array(SAMPLES + 1);
   let maxAbs = 0;
   let finiteCount = 0;
+  const span = hi - lo;
+  const scale = Math.max(1, Math.abs(lo), Math.abs(hi));
+  const spanForSteps = isFinite(span) ? span : scale;
   for (let i = 0; i <= SAMPLES; i++) {
-    const x = lo + ((hi - lo) * i) / SAMPLES;
+    // Interpolating the endpoints separately avoids overflowing hi - lo and
+    // keeps every sampled coordinate finite for finite bounds.
+    const t = i / SAMPLES;
+    const x = lo * (1 - t) + hi * t;
     const y = ev(x);
     xs[i] = x;
     ys[i] = y;
@@ -83,7 +90,7 @@ function numericRoots(f: Expr, v: string, lo: number, hi: number): FoundRoot[] |
   const residualTol = 1e-7 * maxAbs;
 
   const out: FoundRoot[] = [];
-  const minSep = (hi - lo) * 1e-9;
+  const minSep = spanForSteps * 1e-9;
   const push = (x: number, mult: number) => {
     for (const r of out) if (Math.abs(r.x - x) <= Math.max(minSep, 1e-13 * (1 + Math.abs(x)))) return;
     out.push({ x, mult, exact: false });
@@ -94,7 +101,7 @@ function numericRoots(f: Expr, v: string, lo: number, hi: number): FoundRoot[] |
     const y1 = ys[i + 1];
     if (!isFinite(y0) || !isFinite(y1)) continue;
     if (y0 === 0) {
-      push(xs[i], multiplicityEstimate(ev, xs[i], hi - lo, true));
+      push(xs[i], multiplicityEstimate(ev, xs[i], spanForSteps, true));
       continue;
     }
     if (y0 * y1 < 0) {
@@ -102,7 +109,7 @@ function numericRoots(f: Expr, v: string, lo: number, hi: number): FoundRoot[] |
       // A pole (tan at π/2) also flips sign; a genuine root has a tiny residual.
       const fx = ev(x);
       if (isFinite(fx) && Math.abs(fx) <= residualTol) {
-        push(x, multiplicityEstimate(ev, x, hi - lo, true));
+        push(x, multiplicityEstimate(ev, x, spanForSteps, true));
       }
       continue;
     }
@@ -114,11 +121,11 @@ function numericRoots(f: Expr, v: string, lo: number, hi: number): FoundRoot[] |
       const x = refineExtremum(ev, dev, xs[i - 1], xs[i + 1]);
       const fx = ev(x);
       if (isFinite(fx) && Math.abs(fx) <= 1e-10 * maxAbs) {
-        push(x, multiplicityEstimate(ev, x, hi - lo, false));
+        push(x, multiplicityEstimate(ev, x, spanForSteps, false));
       }
     }
   }
-  if (ys[SAMPLES] === 0) push(xs[SAMPLES], multiplicityEstimate(ev, xs[SAMPLES], hi - lo, true));
+  if (ys[SAMPLES] === 0) push(xs[SAMPLES], multiplicityEstimate(ev, xs[SAMPLES], spanForSteps, true));
   out.sort((a, b) => a.x - b.x);
   return out;
 }
@@ -132,7 +139,8 @@ function refineBracket(
   fa: number,
   fb: number,
 ): number {
-  let x = (a + b) / 2;
+  const midpoint = () => a / 2 + b / 2;
+  let x = midpoint();
   for (let iter = 0; iter < 80; iter++) {
     const fx = ev(x);
     if (fx === 0 || !isFinite(fx)) break;
@@ -140,7 +148,7 @@ function refineBracket(
     else { b = x; fb = fx; }
     const d = dev(x);
     let nx = x - fx / d;
-    if (!isFinite(nx) || nx <= a || nx >= b) nx = (a + b) / 2;
+    if (!isFinite(nx) || nx <= a || nx >= b) nx = midpoint();
     if (Math.abs(nx - x) <= 2e-16 * (1 + Math.abs(x))) return nx;
     x = nx;
   }
@@ -165,20 +173,23 @@ function refineExtremum(
   }
   // Golden-section on |f|.
   const phi = (Math.sqrt(5) - 1) / 2;
-  let x1 = b - phi * (b - a);
-  let x2 = a + phi * (b - a);
+  const at = (t: number) => a * (1 - t) + b * t;
+  let x1 = at(1 - phi);
+  let x2 = at(phi);
   let f1 = Math.abs(ev(x1));
   let f2 = Math.abs(ev(x2));
-  for (let i = 0; i < 60 && b - a > 1e-15 * (1 + Math.abs(a)); i++) {
+  for (let i = 0; i < 60; i++) {
+    const scale = Math.max(1, Math.abs(a), Math.abs(b));
+    if (b / scale - a / scale <= 1e-15 * (1 + Math.abs(a) / scale)) break;
     if (f1 <= f2) {
       b = x2; x2 = x1; f2 = f1;
-      x1 = b - phi * (b - a); f1 = Math.abs(ev(x1));
+      x1 = b * (1 - phi) + a * phi; f1 = Math.abs(ev(x1));
     } else {
       a = x1; x1 = x2; f1 = f2;
-      x2 = a + phi * (b - a); f2 = Math.abs(ev(x2));
+      x2 = a * (1 - phi) + b * phi; f2 = Math.abs(ev(x2));
     }
   }
-  return (a + b) / 2;
+  return a / 2 + b / 2;
 }
 
 /**
@@ -194,7 +205,9 @@ function multiplicityEstimate(
 ): number {
   const ests: number[] = [];
   for (const dir of [1, -1]) {
-    const h = dir * Math.max(span * 1e-4, 1e-7 * (1 + Math.abs(x0)));
+    const h0 = Math.max(span * 1e-4, 1e-7 * Math.max(1, Math.abs(x0)));
+    if (!isFinite(h0)) continue;
+    const h = dir * h0;
     const fa = Math.abs(ev(x0 + h));
     const fb = Math.abs(ev(x0 + h / 2));
     if (fa > 0 && fb > 0 && isFinite(fa) && isFinite(fb)) {

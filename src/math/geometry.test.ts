@@ -15,6 +15,32 @@ describe('geometry measurements', () => {
     expect(measureAngle(angle(point(0, 0).point, point(0, 0).point, point(1, 0).point)).ok).toBe(false);
   });
 
+  it('keeps midpoint arithmetic finite at large magnitudes', () => {
+    expect(midpoint({ x: Number.MAX_VALUE, y: Number.MAX_VALUE }, { x: Number.MAX_VALUE, y: Number.MAX_VALUE }))
+      .toEqual({ ok: true, value: { x: Number.MAX_VALUE, y: Number.MAX_VALUE } });
+  });
+
+  it('keeps projection and angle calculations stable at large magnitudes', () => {
+    expect(projection({ x: 0, y: Number.MAX_VALUE }, { x: -Number.MAX_VALUE, y: 0 }, { x: Number.MAX_VALUE, y: 0 }))
+      .toEqual({ ok: true, value: { x: 0, y: 0 } });
+    const result = measureAngle(angle(
+      point(Number.MAX_VALUE, 0).point,
+      point(0, 0).point,
+      point(0, Number.MAX_VALUE).point,
+    ));
+    expect(result.ok && result.value.degrees).toBe(90);
+  });
+
+  it('keeps extreme endpoint differences finite or rejects them explicitly', () => {
+    expect(distance({ x: -Number.MAX_VALUE, y: 0 }, { x: Number.MAX_VALUE, y: 0 }).ok).toBe(false);
+    const result = measureAngle(angle(
+      point(-Number.MAX_VALUE, 0).point,
+      point(Number.MAX_VALUE, 0).point,
+      point(Number.MAX_VALUE, Number.MAX_VALUE).point,
+    ));
+    expect(result.ok && result.value.degrees).toBe(90);
+  });
+
   it('measures ordinary and reflex angles', () => {
     const ordinary = measureAngle(angle(point(1, 0).point, point(0, 0).point, point(0, 1).point));
     const reflex = measureAngle(angle(point(1, 0).point, point(0, 0).point, point(0, 1).point, true));
@@ -37,5 +63,15 @@ describe('geometry intersections', () => {
   it('distinguishes parallel and coincident lines', () => {
     expect(intersect(line({ x: 0, y: 0 }, { x: 1, y: 0 }), line({ x: 0, y: 1 }, { x: 1, y: 1 })).kind).toBe('parallel');
     expect(intersect(line({ x: 0, y: 0 }, { x: 1, y: 0 }), line({ x: 2, y: 0 }, { x: 3, y: 0 })).kind).toBe('coincident');
+  });
+
+  it('rejects zero-length lines instead of calling them coincident', () => {
+    expect(intersect(line({ x: 0, y: 0 }, { x: 0, y: 0 }), line({ x: -1, y: 0 }, { x: 1, y: 0 })).kind).toBe('invalid');
+  });
+
+  it('keeps extreme finite line intersections numerically stable', () => {
+    const max = Number.MAX_VALUE;
+    const hit = intersect(line({ x: -max, y: -max }, { x: max, y: max }), line({ x: -max, y: max }, { x: max, y: -max }));
+    expect(hit).toMatchObject({ kind: 'point', point: { x: 0, y: 0 } });
   });
 });

@@ -33,6 +33,13 @@ const helix = sample(
 );
 
 describe('curveFrames', () => {
+  it('rejects insufficient or misaligned samples', () => {
+    expect(curveExtent(new Float32Array([0, 0]))).toBe(0);
+    expect(() => curveFrames(new Float32Array())).toThrow(/two xyz samples/i);
+    expect(() => curveFrames(new Float32Array([0, 0, 0]))).toThrow(/two xyz samples/i);
+    expect(() => curveFrames(new Float32Array(6), new Float32Array(3))).toThrow(/match/i);
+  });
+
   it('recovers helix curvature and torsion from symbolic derivatives', () => {
     const fr = curveFrames(helix.pts, helix.d1, helix.d2, helix.d3);
     for (const i of [0, 100, 250, N - 1]) {
@@ -99,6 +106,15 @@ describe('curveFrames', () => {
 });
 
 describe('buildTube', () => {
+  it('rejects invalid radius and segment counts before building UVs', () => {
+    const fr = curveFrames(helix.pts, helix.d1, helix.d2, helix.d3);
+    expect(() => buildTube(helix.pts, fr, 0)).toThrow(/radius/i);
+    expect(() => buildTube(helix.pts, fr, -0.25)).toThrow(/radius/i);
+    expect(() => buildTube(helix.pts, fr, 0.25, 2)).toThrow(/segments/i);
+    expect(() => buildTube(helix.pts, fr, 0.25, 3.5)).toThrow(/segments/i);
+    expect(() => buildTube(helix.pts, fr, 0.25, 257)).toThrow(/segments/i);
+  });
+
   it('places every ring vertex at the tube radius with unit normals', () => {
     const fr = curveFrames(helix.pts, helix.d1, helix.d2, helix.d3);
     const tube = buildTube(helix.pts, fr, 0.25, 16);
@@ -163,6 +179,13 @@ describe('buildTube', () => {
 });
 
 describe('combs', () => {
+  it('rejects malformed samples and non-progressing steps', () => {
+    const fr = curveFrames(helix.pts, helix.d1, helix.d2, helix.d3);
+    expect(() => buildComb(helix.pts, fr.frenetNormal.slice(0, -1), fr.kappa, 1, 4)).toThrow(/matching/i);
+    expect(() => buildComb(helix.pts, fr.frenetNormal, fr.kappa, 1, 0)).toThrow(/positive/i);
+    expect(() => buildComb(helix.pts, fr.frenetNormal, fr.kappa, 1, 1.5)).toThrow(/positive/i);
+  });
+
   it('builds teeth of length κ·scale along the given direction', () => {
     const fr = curveFrames(helix.pts, helix.d1, helix.d2, helix.d3);
     const comb = buildComb(helix.pts, fr.frenetNormal, fr.kappa, -1.5, 4);
@@ -197,5 +220,7 @@ describe('combs', () => {
     const ext = curveExtent(helix.pts);
     const noise = new Float64Array(N).fill(1e-6);
     expect(combScale(noise, ext)).toBe(0);
+    expect(combScale(new Float64Array([1]), Infinity)).toBe(0);
+    expect(combScale(new Float64Array([1]), ext, Infinity)).toBe(0);
   });
 });

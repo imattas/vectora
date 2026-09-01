@@ -9,6 +9,8 @@
  */
 import { GLSL_PRELUDE } from '../../math/glsl.ts';
 import { ProgramCache, QUAD_VERT, compileProgram } from './gl.ts';
+
+const finiteUniform = (value: number): number => Number.isFinite(value) ? value : 0;
 import { type Mat4, invert, lookAt, multiply, perspective } from './mat4.ts';
 import { niceSpacing, paramDecls } from './render2d.ts';
 import { glslVec3, theme } from '../theme.ts';
@@ -30,19 +32,37 @@ export interface Surface3D {
   params?: string[];
 }
 
+function assertCamera(cam: Camera3D): void {
+  if (cam == null || !Array.isArray(cam.target) || cam.target.length !== 3 || !cam.target.every(Number.isFinite)
+    || !Number.isFinite(cam.radius) || cam.radius <= 0
+    || !Number.isFinite(cam.theta) || !Number.isFinite(cam.phi)) {
+    throw new Error('Invalid 3D camera.');
+  }
+}
+
 /** Half-width of the axis-aligned box every 3D plot is clipped to. */
-export const cameraBoxR = (cam: Camera3D): number => cam.radius * 0.85;
+export const cameraBoxR = (cam: Camera3D): number => {
+  assertCamera(cam);
+  const r = cam.radius * 0.85;
+  if (!Number.isFinite(r) || r <= 0) throw new Error('Invalid 3D camera radius.');
+  return r;
+};
 
 export function cameraEye(cam: Camera3D): [number, number, number] {
+  assertCamera(cam);
   const cp = Math.cos(cam.phi);
-  return [
+  const eye: [number, number, number] = [
     cam.target[0] + cam.radius * cp * Math.cos(cam.theta),
     cam.target[1] + cam.radius * cp * Math.sin(cam.theta),
     cam.target[2] + cam.radius * Math.sin(cam.phi),
   ];
+  if (!eye.every(Number.isFinite)) throw new Error('3D camera position is non-finite.');
+  return eye;
 }
 
 export function cameraMatrices(cam: Camera3D, aspect: number): { vp: Mat4; invVp: Mat4; eye: [number, number, number] } {
+  assertCamera(cam);
+  if (!Number.isFinite(aspect) || aspect <= 0) throw new Error('3D camera aspect must be positive and finite.');
   const eye = cameraEye(cam);
   const view = lookAt(eye, cam.target, [0, 0, 1]);
   const proj = perspective(Math.PI / 4, aspect, cam.radius * 0.01, cam.radius * 100);
@@ -172,7 +192,7 @@ void main() {
   vec3 p = ro + rd * tHit;
   float h = max(rayLen * 2e-3, uBoxR * 1e-4);
   vec3 n = normalize(gradF(p, h));
-  if (any(isnan(n))) n = -rd;
+  if (any(isnan(n)) || any(isinf(n))) n = -rd;
   if (dot(n, rd) > 0.0) n = -n; // face the viewer
 
   vec3 lightDir = normalize(vec3(0.4, 0.55, 0.9));
@@ -188,7 +208,7 @@ void main() {
 
   vec3 col = base * (0.30 + 0.25 * sky + 0.50 * diffuse) + vec3(0.35) * spec;
   // Distance fade toward the box edge keeps clipped surfaces from popping.
-  float edge = smoothstep(uBoxR, uBoxR * 0.96, max(max(abs(p.x), abs(p.y)), abs(p.z)));
+  float edge = 1.0 - smoothstep(uBoxR * 0.96, uBoxR, max(max(abs(p.x), abs(p.y)), abs(p.z)));
   outColor = vec4(col, 0.6 + 0.4 * edge);
   gl_FragDepth = depthOf(p);
 }
@@ -251,7 +271,7 @@ ${tangents}
 void main() {
   vec3 n = normalize(cross(Pu(vUV.x, vUV.y), Pv(vUV.x, vUV.y)));
   vec3 rd = normalize(vPos - uEye);
-  if (any(isnan(n))) n = -rd;
+  if (any(isnan(n)) || any(isinf(n))) n = -rd;
   if (dot(n, rd) > 0.0) n = -n;
 
   vec3 lightDir = normalize(vec3(0.4, 0.55, 0.9));
@@ -304,7 +324,7 @@ out vec4 outColor;
 void main() {
   vec3 n = normalize(vNormal);
   vec3 rd = normalize(vPos - uEye);
-  if (any(isnan(n))) n = -rd;
+  if (any(isnan(n)) || any(isinf(n))) n = -rd;
   if (dot(n, rd) > 0.0) n = -n;
 
   vec3 lightDir = normalize(vec3(0.4, 0.55, 0.9));
@@ -361,7 +381,7 @@ void main() {
   vec2 q = gl_PointCoord - 0.5;
   float r = length(q);
   if (r > 0.5) discard;
-  float rim = smoothstep(0.5, 0.38, r);
+  float rim = 1.0 - smoothstep(0.38, 0.5, r);
   vec3 col = mix(vec3(1.0), uColor, rim);
   outColor = vec4(col, 1.0);
 }
@@ -451,6 +471,11 @@ export interface Scene3D {
 
 const GRID_N = 160;
 
+function requireGlResource<T>(value: T | null, label: string): T {
+  if (!value) throw new Error(`Could not allocate a WebGL ${label}.`);
+  return value;
+}
+
 export class Renderer3D {
   private cache: ProgramCache;
   private axesProgram: WebGLProgram;
@@ -477,8 +502,8 @@ export class Renderer3D {
     this.axesProgram = compile(AXES_VERT, AXES_FRAG);
     this.lineProgram = compile(LINE_VERT, LINE_FRAG);
     this.pointProgram = compile(POINT_VERT, POINT_FRAG);
-    this.dynVao = gl.createVertexArray()!;
-    this.dynBuf = gl.createBuffer()!;
+    this.dynVao = requireGlResource(gl.createVertexArray(), 'vertex array');
+    this.dynBuf = requireGlResource(gl.createBuffer(), 'buffer');
     gl.bindVertexArray(this.dynVao);
     gl.bindBuffer(gl.ARRAY_BUFFER, this.dynBuf);
     gl.enableVertexAttribArray(0);
@@ -487,11 +512,11 @@ export class Renderer3D {
 
     // Dynamic indexed mesh (curve tubes): separate position/normal/uv buffers.
     this.tubeProgram = compile(TUBE_VERT, TUBE_FRAG);
-    this.tubeVao = gl.createVertexArray()!;
-    this.tubePosBuf = gl.createBuffer()!;
-    this.tubeNrmBuf = gl.createBuffer()!;
-    this.tubeUvBuf = gl.createBuffer()!;
-    this.tubeIdxBuf = gl.createBuffer()!;
+    this.tubeVao = requireGlResource(gl.createVertexArray(), 'vertex array');
+    this.tubePosBuf = requireGlResource(gl.createBuffer(), 'buffer');
+    this.tubeNrmBuf = requireGlResource(gl.createBuffer(), 'buffer');
+    this.tubeUvBuf = requireGlResource(gl.createBuffer(), 'buffer');
+    this.tubeIdxBuf = requireGlResource(gl.createBuffer(), 'buffer');
     gl.bindVertexArray(this.tubeVao);
     gl.bindBuffer(gl.ARRAY_BUFFER, this.tubePosBuf);
     gl.enableVertexAttribArray(0);
@@ -523,18 +548,18 @@ export class Renderer3D {
       }
     }
     this.gridIndexCount = indices.length;
-    this.gridVao = gl.createVertexArray()!;
+    this.gridVao = requireGlResource(gl.createVertexArray(), 'vertex array');
     gl.bindVertexArray(this.gridVao);
-    const uvBuf = gl.createBuffer()!;
+    const uvBuf = requireGlResource(gl.createBuffer(), 'buffer');
     gl.bindBuffer(gl.ARRAY_BUFFER, uvBuf);
     gl.bufferData(gl.ARRAY_BUFFER, uvs, gl.STATIC_DRAW);
     gl.enableVertexAttribArray(0);
     gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
-    const idxBuf = gl.createBuffer()!;
+    const idxBuf = requireGlResource(gl.createBuffer(), 'buffer');
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, idxBuf);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
     gl.bindVertexArray(null);
-    this.axesVao = gl.createVertexArray()!;
+    this.axesVao = requireGlResource(gl.createVertexArray(), 'vertex array');
     const axes = new Float32Array([
       // x axis: red-ish
       -1, 0, 0, 0.75, 0.30, 0.30, 1, 0, 0, 0.75, 0.30, 0.30,
@@ -544,7 +569,7 @@ export class Renderer3D {
       0, 0, -1, 0.30, 0.40, 0.80, 0, 0, 1, 0.30, 0.40, 0.80,
     ]);
     gl.bindVertexArray(this.axesVao);
-    const buf = gl.createBuffer()!;
+    const buf = requireGlResource(gl.createBuffer(), 'buffer');
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
     gl.bufferData(gl.ARRAY_BUFFER, axes, gl.STATIC_DRAW);
     gl.enableVertexAttribArray(0);
@@ -559,6 +584,7 @@ export class Renderer3D {
     const { gl } = this;
     const w = gl.drawingBufferWidth;
     const h = gl.drawingBufferHeight;
+    if (!(w > 0) || !(h > 0) || !Number.isFinite(w) || !Number.isFinite(h)) return;
     gl.viewport(0, 0, w, h);
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL);
@@ -579,12 +605,12 @@ export class Renderer3D {
       const box = gl.getUniformLocation(prog, 'uBoxR');
       if (box) gl.uniform1f(box, boxR);
       const tLoc = gl.getUniformLocation(prog, 't');
-      if (tLoc) gl.uniform1f(tLoc, time);
+      if (tLoc) gl.uniform1f(tLoc, finiteUniform(time));
     };
     const setParams = (prog: WebGLProgram, params?: string[]) => {
       for (const p of params ?? []) {
         const loc = gl.getUniformLocation(prog, 'u_' + p);
-        if (loc) gl.uniform1f(loc, env[p] ?? 0);
+        if (loc) gl.uniform1f(loc, finiteUniform(env[p] ?? 0));
       }
     };
 
@@ -682,8 +708,10 @@ export class Renderer3D {
 
 /** Project axis-end labels (x, y, z) onto the overlay canvas. */
 export function drawLabels3D(ctx: CanvasRenderingContext2D, cam: Camera3D, dpr: number): void {
+  if (!(dpr > 0) || !Number.isFinite(dpr)) return;
   const w = ctx.canvas.width / dpr;
   const h = ctx.canvas.height / dpr;
+  if (!(w > 0) || !(h > 0) || !Number.isFinite(w) || !Number.isFinite(h)) return;
   ctx.save();
   ctx.scale(dpr, dpr);
   ctx.clearRect(0, 0, w, h);

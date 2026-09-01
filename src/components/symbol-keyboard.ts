@@ -37,12 +37,13 @@ export const isKeyboardShortcut = (event: Pick<KeyboardEvent, 'key' | 'ctrlKey' 
 export function makeSymbolKeyboard({ onBeforeOpen, onInsert }: SymbolKeyboardOptions): HTMLElement {
   const wrap = document.createElement('div'); wrap.className = 'symbol-keyboard-wrap';
   const trigger = makeButton('⌨', 'Open symbol keyboard', () => { onBeforeOpen?.(); popover.hidden = !popover.hidden; trigger.setAttribute('aria-expanded', String(!popover.hidden)); if (!popover.hidden) popover.querySelector<HTMLButtonElement>('.symbol-key')?.focus(); }, 'sidebar-action symbol-keyboard-trigger');
-  trigger.setAttribute('aria-expanded', 'false'); trigger.setAttribute('aria-keyshortcuts', 'Control+/ Meta+/');
-  const popover = document.createElement('div'); popover.className = 'symbol-keyboard-popover'; popover.hidden = true; popover.setAttribute('role', 'dialog'); popover.setAttribute('aria-label', 'Calculator keyboard');
+  trigger.setAttribute('aria-haspopup', 'dialog'); trigger.setAttribute('aria-expanded', 'false'); trigger.setAttribute('aria-keyshortcuts', 'Control+/ Meta+/');
+  const popover = document.createElement('div'); popover.className = 'symbol-keyboard-popover'; popover.id = 'symbol-keyboard-popover'; popover.hidden = true; popover.setAttribute('role', 'dialog'); popover.setAttribute('aria-label', 'Calculator keyboard'); trigger.setAttribute('aria-controls', popover.id);
   const title = document.createElement('div'); title.className = 'symbol-keyboard-title'; title.textContent = 'Calculator keyboard'; popover.append(title);
   for (const [name, keys] of KEY_GROUPS) { const heading = document.createElement('div'); heading.className = 'symbol-keyboard-group'; heading.textContent = name; popover.append(heading); const row = document.createElement('div'); row.className = 'symbol-keyboard-row'; for (const key of keys) row.append(makeButton(key.label, `Insert ${key.label}`, () => onInsert(key.insert, key.cursorOffset, key.wrapSelection, key.wrapper), 'symbol-key')); popover.append(row); }
   const close = makeButton('Close', 'Close symbol keyboard', () => { popover.hidden = true; trigger.setAttribute('aria-expanded', 'false'); trigger.focus(); }, 'symbol-keyboard-close'); popover.append(close);
   popover.addEventListener('keydown', event => { if (event.key === 'Escape') { close.click(); event.preventDefault(); } });
+  document.addEventListener('pointerdown', event => { if (!popover.hidden && event.target instanceof Node && !wrap.contains(event.target)) close.click(); });
   document.addEventListener('keydown', event => {
     if (isKeyboardShortcut(event)) {
       event.preventDefault(); onBeforeOpen?.(); popover.hidden = false;

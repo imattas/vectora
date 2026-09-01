@@ -1,5 +1,5 @@
 import type { GeometryAnalysis } from '../../math/geometry-analysis.ts';
-import type { GeometryObject, Point2 } from '../../math/geometry.ts';
+import { finitePoint, type GeometryObject, type Point2 } from '../../math/geometry.ts';
 import { measureAngle } from '../../math/measurements.ts';
 import { angleArc } from './angle-arc.ts';
 
@@ -12,6 +12,18 @@ export interface GeometryOverlayOptions {
 }
 
 const color = '#56b4ff';
+const finiteView = (view: { cx: number; cy: number; upp: number }, dpr: number): boolean =>
+  Number.isFinite(view.cx) && Number.isFinite(view.cy) && Number.isFinite(view.upp) && view.upp > 0
+  && Number.isFinite(dpr) && dpr > 0;
+const finiteObject = (object: GeometryObject): boolean => {
+  if (object.kind === 'point') return Number.isFinite(object.point.x) && Number.isFinite(object.point.y);
+  if (object.kind === 'line' || object.kind === 'ray' || object.kind === 'segment') return finitePoint(object.a) && finitePoint(object.b);
+  if (object.kind === 'vector') return finitePoint(object.from) && finitePoint(object.to);
+  if (object.kind === 'circle') return finitePoint(object.center) && Number.isFinite(object.radius) && object.radius >= 0;
+  if (object.kind === 'polygon') return object.points.length > 0 && object.points.every(finitePoint);
+  if (object.kind === 'angle') return finitePoint(object.start) && finitePoint(object.vertex) && finitePoint(object.end);
+  return false;
+};
 const toScreen = (ctx: CanvasRenderingContext2D, view: { cx: number; cy: number; upp: number }, dpr: number, p: Point2) => {
   const w = ctx.canvas.width / dpr, h = ctx.canvas.height / dpr;
   const upp = view.upp * dpr;
@@ -21,24 +33,38 @@ const toScreen = (ctx: CanvasRenderingContext2D, view: { cx: number; cy: number;
 function drawLine(ctx: CanvasRenderingContext2D, view: { cx: number; cy: number; upp: number }, dpr: number, object: Extract<GeometryObject, { kind: 'line' | 'ray' | 'segment' }>) {
   const w = ctx.canvas.width / dpr, h = ctx.canvas.height / dpr;
   const halfW = w * view.upp * dpr / 2, halfH = h * view.upp * dpr / 2;
-  const dx = object.b.x - object.a.x, dy = object.b.y - object.a.y;
-  const length = Math.hypot(dx, dy);
-  if (!length) return;
-  const ux = dx / length, uy = dy / length;
+  const scale = Math.max(Math.abs(object.a.x), Math.abs(object.a.y), Math.abs(object.b.x), Math.abs(object.b.y));
+  if (!Number.isFinite(scale) || scale === 0) return;
+  const ax = object.a.x / scale, ay = object.a.y / scale;
+  const dx = object.b.x / scale - ax, dy = object.b.y / scale - ay;
+  const normalizedLength = Math.hypot(dx, dy);
+  if (!Number.isFinite(normalizedLength) || normalizedLength === 0) return;
+  const ux = dx / normalizedLength, uy = dy / normalizedLength;
   let from = 0, to = 0;
   if (object.kind === 'line') { from = -Math.max(halfW, halfH) * 2; to = -from; }
   else if (object.kind === 'ray') { from = 0; to = Math.max(halfW, halfH) * 2; }
-  else { from = 0; to = length; }
-  const a = toScreen(ctx, view, dpr, { x: object.a.x + ux * from, y: object.a.y + uy * from });
-  const b = toScreen(ctx, view, dpr, { x: object.a.x + ux * to, y: object.a.y + uy * to });
+  else {
+    const a = toScreen(ctx, view, dpr, object.a);
+    const b = toScreen(ctx, view, dpr, object.b);
+    if (![a.x, a.y, b.x, b.y].every(Number.isFinite)) return;
+    ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); return;
+  }
+  const fromPoint = { x: object.a.x + scale * ux * from, y: object.a.y + scale * uy * from };
+  const toPoint = { x: object.a.x + scale * ux * to, y: object.a.y + scale * uy * to };
+  if (![fromPoint.x, fromPoint.y, toPoint.x, toPoint.y].every(Number.isFinite)) return;
+  const a = toScreen(ctx, view, dpr, fromPoint);
+  const b = toScreen(ctx, view, dpr, toPoint);
+  if (![a.x, a.y, b.x, b.y].every(Number.isFinite)) return;
   ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
 }
 
 export function drawGeometryOverlay(ctx: CanvasRenderingContext2D, view: { cx: number; cy: number; upp: number }, dpr: number, analysis: GeometryAnalysis, options: GeometryOverlayOptions = {}) {
+  if (!finiteView(view, dpr)) return;
   const w = ctx.canvas.width / dpr, h = ctx.canvas.height / dpr;
   ctx.save(); ctx.scale(dpr, dpr); ctx.lineCap = 'round';
   const objects = [...analysis.objects, ...analysis.derived];
   for (const object of objects) {
+    if (!finiteObject(object)) continue;
     ctx.beginPath(); ctx.strokeStyle = object === options.hover ? '#fff' : (options.colorFor?.(object) ?? color);
     ctx.lineWidth = object === options.hover ? 3 : 1.75;
     if (object.kind === 'line' || object.kind === 'ray' || object.kind === 'segment') drawLine(ctx, view, dpr, object);

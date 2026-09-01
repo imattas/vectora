@@ -36,7 +36,8 @@ export function polylineSpecialPoints(
   const out: SpecialPoint[] = [];
   const add = (x: number, y: number, axis: 'x' | 'y') => {
     if (!Number.isFinite(x) || !Number.isFinite(y) || x < xlo || x > xhi || y < ylo || y > yhi) return;
-    if (out.some(p => Math.hypot(p.x - x, p.y - y) <= 1e-9)) return;
+    const scale = Math.max(Math.abs(x), Math.abs(y), ...out.flatMap(p => [Math.abs(p.x), Math.abs(p.y)]), 1);
+    if (out.some(p => Math.hypot(p.x / scale - x / scale, p.y / scale - y / scale) <= 1e-9 / scale)) return;
     const value = axis === 'x' ? x : y;
     out.push({ x, y, lines: [`${axis}-intercept`, `${axis} = ${fmtRoot(value)}`] });
   };
@@ -44,17 +45,20 @@ export function polylineSpecialPoints(
   for (let i = 0; i < count; i++) {
     const a = points[i], b = points[(i + 1) % points.length];
     if (![a?.x, a?.y, b?.x, b?.y].every(Number.isFinite)) continue;
-    const dy = b.y - a.y;
-    if (Math.abs(dy) > 1e-12) {
-      const t = -a.y / dy;
-      if (t >= -1e-12 && t <= 1 + 1e-12) add(a.x + t * (b.x - a.x), 0, 'x');
+    const coordinateScale = Math.max(Math.abs(a.x), Math.abs(a.y), Math.abs(b.x), Math.abs(b.y), 1);
+    const ay = a.y / coordinateScale, by = b.y / coordinateScale;
+    const dy = by - ay;
+    if (Math.abs(dy) > 1e-12 / coordinateScale) {
+      const t = Math.max(0, Math.min(1, -ay / dy));
+      add(a.x * (1 - t) + b.x * t, 0, 'x');
     } else if (Math.abs(a.y) <= 1e-12) {
       add(a.x, 0, 'x'); add(b.x, 0, 'x');
     }
-    const dx = b.x - a.x;
-    if (Math.abs(dx) > 1e-12) {
-      const t = -a.x / dx;
-      if (t >= -1e-12 && t <= 1 + 1e-12) add(0, a.y + t * (b.y - a.y), 'y');
+    const ax = a.x / coordinateScale, bx = b.x / coordinateScale;
+    const dx = bx - ax;
+    if (Math.abs(dx) > 1e-12 / coordinateScale) {
+      const t = Math.max(0, Math.min(1, -ax / dx));
+      add(0, a.y * (1 - t) + b.y * t, 'y');
     } else if (Math.abs(a.x) <= 1e-12) {
       add(0, a.y, 'y'); add(0, b.y, 'y');
     }

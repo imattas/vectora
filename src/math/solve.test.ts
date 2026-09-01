@@ -7,6 +7,12 @@ const near = (a: number[], b: number[], tol = 1e-6) =>
   a.length === b.length && a.every((v, k) => Math.abs(v - b[k]) < tol);
 const has = (sols: number[][], p: number[], tol?: number) => sols.some(s => near(s, p, tol));
 
+test('malformed containment margins fall back to the default', () => {
+  const args = [sys('x - 1', 'y - 2'), ['x', 'y'], [0, 0], [1, 2]] as const;
+  expect(solveSystem(...args, { margin: -1 })).toEqual([[1, 2]]);
+  expect(solveSystem(...args, { margin: Infinity })).toEqual([[1, 2]]);
+});
+
 test('two circles meet in two points', () => {
   const sols = solveSystem(sys('x^2 + y^2 - 1', '(x-1)^2 + y^2 - 1'), ['x', 'y'], [-3, -3], [3, 3]);
   expect(sols).toHaveLength(2);
@@ -28,6 +34,14 @@ test('solutions outside the box are dropped', () => {
   const sols = solveSystem(sys('x^2 - 4', 'y'), ['x', 'y'], [0, -1], [9, 1]);
   expect(sols).toHaveLength(1);
   expect(near(sols[0], [2, 0])).toBe(true);
+});
+
+test('rejects finite endpoints whose interval width overflows', () => {
+  const max = Number.MAX_VALUE;
+  expect(solveSystem([
+    { kind: 'var', name: 'x' },
+    { kind: 'var', name: 'y' },
+  ], ['x', 'y'], [-max, -max], [max, max])).toEqual([]);
 });
 
 test('constants in scope are honoured', () => {

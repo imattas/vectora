@@ -24,6 +24,11 @@ export default function Tokenizer(patternDict: PatternDict) {
     let si = 0;
     let t = fns.findIndex(p => p(s));
     let line = 1;
+    let tokenLine = 1;
+
+    const advanceLine = (token: string) => {
+      line += token.match(/\n/g)?.length ?? 0;
+    };
 
     for (let i = 1; i < string.length; i++) {
       const ds = string[i];
@@ -34,13 +39,15 @@ export default function Tokenizer(patternDict: PatternDict) {
         yield {
           type: names[t],
           str: s,
-          line,
+          line: tokenLine,
           loc: [si, i]
         };
+        advanceLine(s);
         const nt = fns.findIndex(p => p(ds));
         t = nt;
         s = ds;
         si = i;
+        tokenLine = line;
       }
     }
 
@@ -48,7 +55,7 @@ export default function Tokenizer(patternDict: PatternDict) {
       yield {
         type: names[t],
         str: s,
-        line,
+        line: tokenLine,
         loc: [si, string.length],
       };
     }

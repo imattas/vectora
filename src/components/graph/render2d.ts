@@ -69,9 +69,14 @@ export interface Layers2D {
   curves?: Curve2D[];
 }
 
+const finiteUniform = (value: number): number => Number.isFinite(value) ? value : 0;
+
 /** Pick a "nice" grid spacing (1, 2, or 5 × 10^k) at least minPx pixels apart. */
 export function niceSpacing(upp: number, minPx: number): { major: number; minor: number } {
-  const target = upp * minPx;
+  const rawTarget = upp * minPx;
+  const target = Number.isFinite(rawTarget) && rawTarget > 0
+    ? Math.min(1e12, Math.max(1e-12, rawTarget))
+    : 1;
   const k = Math.floor(Math.log10(target));
   const base = Math.pow(10, k);
   for (const [m, div] of [[1, 5], [2, 4], [5, 5], [10, 5]] as const) {
@@ -635,6 +640,8 @@ export class Renderer2D {
     const { gl } = this;
     const w = gl.drawingBufferWidth;
     const h = gl.drawingBufferHeight;
+    if (!(w > 0) || !(h > 0) || !Number.isFinite(w) || !Number.isFinite(h)
+      || !Number.isFinite(view.cx) || !Number.isFinite(view.cy) || !(view.upp > 0) || !Number.isFinite(view.upp)) return;
     gl.viewport(0, 0, w, h);
     gl.disable(gl.DEPTH_TEST);
     gl.enable(gl.BLEND);
@@ -663,13 +670,13 @@ export class Renderer2D {
         gl.uniform1f(gl.getUniformLocation(grid, 'uUpp'), view.upp);
         gl.uniform2f(gl.getUniformLocation(grid, 'uRes'), w, h);
         const tLoc = gl.getUniformLocation(grid, 't');
-        if (tLoc) gl.uniform1f(tLoc, time);
+        if (tLoc) gl.uniform1f(tLoc, finiteUniform(time));
         specs.forEach((s, k) => {
           gl.uniform1f(gl.getUniformLocation(grid, `uMajor${k}`), s.major);
           gl.uniform1f(gl.getUniformLocation(grid, `uMinor${k}`), s.minor);
           for (const p of s.params) {
             const loc = gl.getUniformLocation(grid, 'u_' + p);
-            if (loc) gl.uniform1f(loc, env[p] ?? 0);
+            if (loc) gl.uniform1f(loc, finiteUniform(env[p] ?? 0));
           }
         });
         this.quad.draw();
@@ -698,14 +705,14 @@ export class Renderer2D {
       gl.uniform2f(gl.getUniformLocation(prog, 'uRes'), w, h);
       gl.uniform3f(gl.getUniformLocation(prog, 'uColor'), ...color);
       const tLoc = gl.getUniformLocation(prog, 't');
-      if (tLoc) gl.uniform1f(tLoc, time);
+      if (tLoc) gl.uniform1f(tLoc, finiteUniform(time));
       for (const p of params ?? []) {
         const loc = gl.getUniformLocation(prog, 'u_' + p);
-        if (loc) gl.uniform1f(loc, env[p] ?? 0);
+        if (loc) gl.uniform1f(loc, finiteUniform(env[p] ?? 0));
       }
       for (const [name, value] of Object.entries(uniforms ?? {})) {
         const loc = gl.getUniformLocation(prog, name);
-        if (loc) gl.uniform1f(loc, value);
+        if (loc) gl.uniform1f(loc, finiteUniform(value));
       }
       extra?.(prog);
       this.quad.draw();
@@ -752,8 +759,11 @@ export interface Overlay2D {
  *  numbers=false skips the axis numerals (custom coordinate grids have no
  *  straight axes to label them along). */
 export function drawLabels2D(ctx: CanvasRenderingContext2D, view: View2D, dpr: number, extras?: Overlay2D, numbers = true): void {
+  if (!(dpr > 0) || !Number.isFinite(dpr) || !Number.isFinite(view.cx) || !Number.isFinite(view.cy)
+    || !(view.upp > 0) || !Number.isFinite(view.upp)) return;
   const w = ctx.canvas.width / dpr;
   const h = ctx.canvas.height / dpr;
+  if (!(w > 0) || !(h > 0) || !Number.isFinite(w) || !Number.isFinite(h)) return;
   ctx.save();
   ctx.scale(dpr, dpr);
   ctx.clearRect(0, 0, w, h);
@@ -778,15 +788,21 @@ export function drawLabels2D(ctx: CanvasRenderingContext2D, view: View2D, dpr: n
 
     const x0 = Math.ceil((view.cx - (w / 2) * upp) / major) * major;
     const x1 = view.cx + (w / 2) * upp;
-    for (let x = x0; x <= x1; x += major) {
-      if (Math.abs(x) < major / 2) continue;
-      ctx.fillText(fmt(x), toScreenX(x) + 2, axisY + 13 <= h ? axisY + 13 : axisY - 4);
+    if (Number.isFinite(x0) && Number.isFinite(x1) && Number.isFinite(major) && major > 0) {
+      for (let tick = 0, x = x0; tick < 256 && x <= x1; tick++, x += major) {
+        if (Math.abs(x) < major / 2) continue;
+        ctx.fillText(fmt(x), toScreenX(x) + 2, axisY + 13 <= h ? axisY + 13 : axisY - 4);
+        if (x + major === x) break;
+      }
     }
     const y0 = Math.ceil((view.cy - (h / 2) * upp) / major) * major;
     const y1 = view.cy + (h / 2) * upp;
-    for (let y = y0; y <= y1; y += major) {
-      if (Math.abs(y) < major / 2) continue;
-      ctx.fillText(fmt(y), axisX + 4, toScreenY(y) - 3);
+    if (Number.isFinite(y0) && Number.isFinite(y1) && Number.isFinite(major) && major > 0) {
+      for (let tick = 0, y = y0; tick < 256 && y <= y1; tick++, y += major) {
+        if (Math.abs(y) < major / 2) continue;
+        ctx.fillText(fmt(y), axisX + 4, toScreenY(y) - 3);
+        if (y + major === y) break;
+      }
     }
   }
 

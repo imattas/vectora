@@ -34,7 +34,7 @@ describe('compileTyped', () => {
     expect(typed('re(ln(w))').type).toBe('real');
     expect(typed('im(w^2)').type).toBe('real');
     expect(typed('arg(w)').type).toBe('real');
-    expect(typed('abs(w)')).toEqual({ type: 'real', code: 'length(vec2(x, y))' });
+    expect(typed('abs(w)')).toEqual({ type: 'real', code: 'c_abs(vec2(x, y))' });
   });
 
   it('conj stays complex', () => {

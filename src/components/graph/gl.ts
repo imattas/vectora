@@ -11,7 +11,8 @@ export const glStats = { compiles: 0 };
 export function compileProgram(gl: WebGL2RenderingContext, vert: string, frag: string): WebGLProgram {
   glStats.compiles++;
   const compile = (type: number, src: string) => {
-    const sh = gl.createShader(type)!;
+    const sh = gl.createShader(type);
+    if (!sh) throw new Error('Could not allocate a WebGL shader.');
     gl.shaderSource(sh, src);
     gl.compileShader(sh);
     if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
@@ -21,26 +22,40 @@ export function compileProgram(gl: WebGL2RenderingContext, vert: string, frag: s
     }
     return sh;
   };
-  const vs = compile(gl.VERTEX_SHADER, vert);
-  const fs = compile(gl.FRAGMENT_SHADER, frag);
-  const prog = gl.createProgram()!;
-  gl.attachShader(prog, vs);
-  gl.attachShader(prog, fs);
-  gl.linkProgram(prog);
-  gl.deleteShader(vs);
-  gl.deleteShader(fs);
-  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
-    const log = gl.getProgramInfoLog(prog);
-    gl.deleteProgram(prog);
-    throw new Error(`Program link error: ${log}`);
+  let vs: WebGLShader | null = null;
+  let fs: WebGLShader | null = null;
+  let prog: WebGLProgram | null = null;
+  try {
+    vs = compile(gl.VERTEX_SHADER, vert);
+    fs = compile(gl.FRAGMENT_SHADER, frag);
+    prog = gl.createProgram();
+    if (!prog) throw new Error('Could not allocate a WebGL program.');
+    gl.attachShader(prog, vs);
+    gl.attachShader(prog, fs);
+    gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+      const log = gl.getProgramInfoLog(prog);
+      throw new Error(`Program link error: ${log}`);
+    }
+    return prog;
+  } catch (error) {
+    if (prog) gl.deleteProgram(prog);
+    throw error;
+  } finally {
+    if (vs) gl.deleteShader(vs);
+    if (fs) gl.deleteShader(fs);
   }
-  return prog;
 }
 
 /** A shared clip-space quad; every fragment-shader pass draws this. */
 export function fullscreenQuad(gl: WebGL2RenderingContext): { draw(): void } {
-  const vao = gl.createVertexArray()!;
-  const buf = gl.createBuffer()!;
+  const vao = gl.createVertexArray();
+  if (!vao) throw new Error('Could not allocate a WebGL vertex array.');
+  const buf = gl.createBuffer();
+  if (!buf) {
+    gl.deleteVertexArray(vao);
+    throw new Error('Could not allocate a WebGL buffer.');
+  }
   gl.bindVertexArray(vao);
   gl.bindBuffer(gl.ARRAY_BUFFER, buf);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
@@ -75,6 +90,10 @@ export class ProgramCache {
       } catch (error) {
         if (!this.failed.has(key)) {
           this.failed.add(key);
+          if (this.failed.size > 64) {
+            const [firstKey] = this.failed;
+            this.failed.delete(firstKey);
+          }
           this.onError?.(error);
         }
         throw error;

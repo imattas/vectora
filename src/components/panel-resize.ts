@@ -30,11 +30,12 @@ const KEY_STEP = 16;
 export interface PanelResizeBinding { destroy(): void }
 
 export function initPanelResize(panel: HTMLElement, handle: HTMLElement): PanelResizeBinding {
-  const maxWidth = () => document.documentElement.clientWidth - 2 * MARGIN;
-  const clampWidth = (w: number) => Math.round(Math.min(Math.max(w, MIN_WIDTH), maxWidth()));
+  const maxWidth = () => Math.max(0, document.documentElement.clientWidth - 2 * MARGIN);
+  const minWidth = () => Math.min(MIN_WIDTH, maxWidth());
+  const clampWidth = (w: number) => Math.round(Math.min(Math.max(w, minWidth()), maxWidth()));
 
   const syncAria = () => {
-    handle.setAttribute('aria-valuemin', String(MIN_WIDTH));
+    handle.setAttribute('aria-valuemin', String(Math.round(minWidth())));
     handle.setAttribute('aria-valuemax', String(Math.round(maxWidth())));
     const width = Math.round(panel.getBoundingClientRect().width);
     handle.setAttribute('aria-valuenow', String(width));
@@ -103,7 +104,7 @@ export function initPanelResize(panel: HTMLElement, handle: HTMLElement): PanelR
       setWidth(panel.getBoundingClientRect().width + edgeStep);
       save();
     } else if (e.key === 'Home') {
-      setWidth(MIN_WIDTH);
+      setWidth(minWidth());
       save();
     } else if (e.key === 'End') {
       setWidth(maxWidth());

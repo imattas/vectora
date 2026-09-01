@@ -13,7 +13,14 @@ const STORAGE_KEY = 'vectora-graph-settings-v1';
 export function loadGraphSettings(): GraphSettings {
   try {
     const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null') as Partial<GraphSettings> | null;
-    return { ...DEFAULT_GRAPH_SETTINGS, ...raw, angleUnit: raw?.angleUnit === 'radians' ? 'radians' : 'degrees' };
+    const value = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+    const bool = (key: keyof Pick<GraphSettings, 'grid' | 'axes' | 'labels' | 'points' | 'snap'>) =>
+      typeof value[key] === 'boolean' ? value[key] as boolean : DEFAULT_GRAPH_SETTINGS[key];
+    return {
+      grid: bool('grid'), axes: bool('axes'), labels: bool('labels'),
+      points: bool('points'), snap: bool('snap'),
+      angleUnit: value.angleUnit === 'radians' ? 'radians' : 'degrees',
+    };
   } catch { return { ...DEFAULT_GRAPH_SETTINGS }; }
 }
 
