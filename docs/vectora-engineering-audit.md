@@ -13,7 +13,7 @@ workspace backups, and exports.
 | --- | --- | --- | --- |
 | Expression rows | Native `contenteditable` paragraph splitting could create duplicate empty rows, especially after Enter, IME input, or paste. | Centralized newline insertion and DOM reconciliation in state space. | Fixed; covered by existing editor tests and browser smoke checks. |
 | Expression preview | Visual math formatting could not identify which source fragment was clicked. | Preview nodes now carry canonical source ranges; clicks return to the matching source offset. | Fixed; manually verified. |
-| Keyboard | Raw Unicode constants and incomplete operator templates produced parser-invalid insertions. | Keyboard emits parser-compatible canonical tokens and cursor-aware templates. | Fixed; 565-test suite green. |
+| Keyboard | Raw Unicode constants and incomplete operator templates produced parser-invalid insertions. | Keyboard emits parser-compatible canonical tokens and cursor-aware templates; display-only `≤`/`≥` keys now insert canonical `<=`/`>=`. | Fixed. |
 | Keyboard selection actions | Fraction/root/power/function actions appended after selections instead of wrapping them. | Selection-aware wrapping with operand-slot caret placement. | Fixed; manually exercised. |
 | Autocomplete | Suggestions had no keyboard navigation. | Added ArrowUp/ArrowDown, Tab, Enter, Escape, listbox semantics. | Fixed. |
 | Onboarding | First-run orientation was missing. | Added welcome/development notice and onboarding flow with skip/start actions. | Fixed. |
@@ -71,7 +71,7 @@ workspace backups, and exports.
 The current implementation has repeatedly passed:
 
 ```text
-vitest: 37 files, 570 tests passed
+vitest: 38 files, 573 tests passed
 npm run typecheck: passed
 npm run web:build: passed
 npm run test:editor: 20 scenarios passed

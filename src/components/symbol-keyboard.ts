@@ -16,7 +16,11 @@ export const KEY_GROUPS: ReadonlyArray<readonly [string, readonly KeyboardKey[]]
     { label: 'π', insert: 'pi' }, { label: 'τ', insert: 'tau' },
     { label: 'e', insert: 'e' }, { label: 'i', insert: 'i' }, { label: '∞', insert: 'inf' },
   ]],
-  ['Comparisons', ['≤', '≥', '<', '>', '='].map(label => ({ label, insert: label }))],
+  ['Comparisons', ['≤', '≥', '<', '>', '='].map(label => ({
+    label,
+    // The display glyphs are not the parser's canonical comparison tokens.
+    insert: ({ '≤': '<=', '≥': '>=' } as Record<string, string>)[label] ?? label,
+  }))],
   ['Calculus', [
     { label: '∫', insert: 'int[0..1] ' }, { label: 'Σ', insert: 'sum(n=1..10, )', cursorOffset: 13 },
     { label: 'Π', insert: 'prod(n=1..10, )', cursorOffset: 14 },
