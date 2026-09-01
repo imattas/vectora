@@ -30,7 +30,7 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test -- --run
       - run: pnpm web:build
-      - uses: actions/upload-pages-artifact@v4
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: dist-web
 
@@ -44,4 +44,4 @@ jobs:
       - id: deployment
         # Explicit Node 24 tag; the v4/v5 floating majors can otherwise be
         # forced through the runner's transition runtime.
-        uses: actions/deploy-pages@v3.0.2-node.24
+        uses: actions/deploy-pages@v5
