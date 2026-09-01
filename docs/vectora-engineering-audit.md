@@ -50,6 +50,9 @@ workspace backups, and exports.
 - Nonlinear curve intersections use bounded deterministic Newton seeds,
   deduplication, clipping, and an evaluation budget. They are computed from
   idle work rather than pointer handlers.
+- Formatted previews are explicitly non-editable and editor automation targets
+  the canonical source text node, preventing preview glyphs from being inserted
+  or counted as duplicate equation content.
 
 ## Persistence and documentation
 
@@ -66,9 +69,10 @@ workspace backups, and exports.
 The current implementation has repeatedly passed:
 
 ```text
-vitest: 36 files, 565 tests passed
+vitest: 37 files, 569 tests passed
 npm run typecheck: passed
 npm run web:build: passed
+npm run test:editor: 20 scenarios passed
 git diff --check: passed
 http://localhost:8080/: HTTP 200
 GitHub Pages workflow: successful on prior pushed revisions

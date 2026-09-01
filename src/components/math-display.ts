@@ -129,6 +129,10 @@ function appendFormatted(parent: HTMLElement, text: string, fractions: boolean, 
 /** Build a visual-only Desmos-style preview; canonical source stays editable. */
 export function renderMathPreview(text: string): HTMLSpanElement {
   const preview = document.createElement('span'); preview.className = 'math-preview'; preview.setAttribute('aria-hidden', 'true');
+  // The preview is a clickable visual layer, never an editing surface. Without
+  // an explicit contenteditable boundary Chromium can place native edits into
+  // its formatted child spans and duplicate the canonical source text.
+  preview.contentEditable = 'false';
   appendFormatted(preview, text, true);
   return preview;
 }

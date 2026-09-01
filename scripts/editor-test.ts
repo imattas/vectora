@@ -38,7 +38,7 @@ async function scenario(label: string, fn: () => Promise<void>) {
 const rowTexts = (page: Page) =>
   page.evaluate(() => [...document.querySelectorAll<HTMLElement>('.eq-line')].map(line => {
     const copy = line.cloneNode(true) as HTMLElement;
-    copy.querySelectorAll('.eq-widget, .row-options-wrap').forEach(node => node.remove());
+    copy.querySelectorAll('.eq-widget, .math-preview, .row-options-wrap').forEach(node => node.remove());
     return copy.textContent;
   }));
 
@@ -57,7 +57,12 @@ async function caretTo(page: Page, line: number, offset: number) {
     ({ line, offset }) => {
       const el = [...document.querySelectorAll('.eq-line')][line] as HTMLElement;
       el.focus();
-      const node = el.firstChild ?? el;
+      // The focused row keeps canonical text in `.math-source`; the visual
+      // preview is a sibling and may contain multiple formatted text nodes.
+      // Select the source text node so offsets are character offsets, not
+      // child-element offsets.
+      const source = el.querySelector<HTMLElement>('.math-source');
+      const node = source?.firstChild ?? el.firstChild ?? el;
       const r = document.createRange();
       r.setStart(node, Math.min(offset, node.textContent?.length ?? 0));
       r.collapse(true);
@@ -232,7 +237,7 @@ const visibleRows = (page: Page) =>
       .filter(l => !l.classList.contains('eq-hidden'))
       .map(line => {
         const copy = line.cloneNode(true) as HTMLElement;
-        copy.querySelectorAll('.eq-widget, .row-options-wrap').forEach(node => node.remove());
+        copy.querySelectorAll('.eq-widget, .math-preview, .row-options-wrap').forEach(node => node.remove());
         return copy.textContent;
       }),
   );
