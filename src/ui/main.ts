@@ -3437,7 +3437,7 @@ if (addActions) {
       savedSymbolRange = selection?.rangeCount ? selection.getRangeAt(0).cloneRange() : null;
       savedSymbolCaret = caretPos();
     },
-    onInsert: (symbol, cursorOffset, wrapSelection) => {
+    onInsert: (symbol, cursorOffset, wrapSelection, wrapper) => {
       let selectionLength = 0;
       if (wrapSelection && savedSymbolRange && !savedSymbolRange.collapsed) {
         const selected = savedSymbolRange.toString();
@@ -3446,6 +3446,7 @@ if (addActions) {
           if (wrapSelection === 'fraction') { symbol = `(${selected})/(1)`; cursorOffset = selectionLength + 4; }
           else if (wrapSelection === 'sqrt') { symbol = `sqrt(${selected})`; cursorOffset = selectionLength + 5; }
           else if (wrapSelection === 'abs') { symbol = `abs(${selected})`; cursorOffset = selectionLength + 4; }
+          else if (wrapSelection === 'function' && wrapper) { symbol = `${wrapper}(${selected})`; cursorOffset = symbol.length; }
           else { symbol = `(${selected})^2`; cursorOffset = symbol.length; }
         }
       }

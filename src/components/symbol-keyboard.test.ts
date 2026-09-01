@@ -9,5 +9,6 @@ describe('symbol keyboard', () => {
     expect(KEY_GROUPS.flatMap(([, keys]) => keys).find(key => key.label === 'π')?.insert).toBe('pi');
     expect(KEY_GROUPS.flatMap(([, keys]) => keys).find(key => key.label === '√')?.cursorOffset).toBe(5);
     expect(KEY_GROUPS.flatMap(([, keys]) => keys).find(key => key.label === 'a/b')?.insert).toBe('(1)/(2)');
+    expect(KEY_GROUPS.flatMap(([, keys]) => keys).find(key => key.label === 'sin')?.wrapper).toBe('sin');
   });
 });
