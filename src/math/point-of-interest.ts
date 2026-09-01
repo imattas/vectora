@@ -25,12 +25,18 @@ export function findCurveIntersections(left: Expr, right: Expr, bounds: Bounds, 
     if (out.some(p => Math.hypot(p.x - x, p.y - y) <= Math.max(spanX, spanY) * 1e-7)) return;
     out.push({ x, y, lines: ['intersection', `(${fmt(x)}, ${fmt(y)})`] });
   };
-  const n = Math.max(3, Math.min(16, Math.floor(Math.sqrt(budget / 2))));
+  // Use a wider x-oriented seed lattice than a square lattice. Most graph
+  // intersections are sparse in y but can oscillate rapidly along x; the old
+  // 16x16 cap silently skipped dense roots before Newton had a chance to
+  // converge. Keep the same work budget while allocating more samples to x.
+  const nx = Math.max(8, Math.min(64, Math.floor(Math.sqrt(Math.max(64, budget)))));
+  const ny = Math.max(3, Math.min(8, Math.floor(budget / (nx * 18))));
+  const steps = Math.max(6, Math.min(18, Math.floor(budget / (nx * ny))));
   let used = 0;
-  for (let ix = 0; ix < n && used < budget; ix++) for (let iy = 0; iy < n && used < budget; iy++) {
-    let x = bounds.xlo + (ix + 0.5) * spanX / n;
-    let y = bounds.ylo + (iy + 0.5) * spanY / n;
-    for (let step = 0; step < 18 && used++ < budget; step++) {
+  for (let ix = 0; ix < nx && used < budget; ix++) for (let iy = 0; iy < ny && used < budget; iy++) {
+    let x = bounds.xlo + (ix + 0.5) * spanX / nx;
+    let y = bounds.ylo + (iy + 0.5) * spanY / ny;
+    for (let step = 0; step < steps && used++ < budget; step++) {
       const a = f(x, y), b = g(x, y);
       if (!Number.isFinite(a) || !Number.isFinite(b)) break;
       const hx = Math.max(1e-7, spanX * 1e-5), hy = Math.max(1e-7, spanY * 1e-5);

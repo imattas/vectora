@@ -23,4 +23,14 @@ describe('findCurveIntersections', () => {
     const points = findCurveIntersections(parseExpr('y = x^2'), parseExpr('y = 0'), bounds);
     expect(points.some(point => Math.hypot(point.x, point.y) < 1e-5)).toBe(true);
   });
+  it('finds dense crossings across a wide oscillatory view', () => {
+    const points = findCurveIntersections(
+      parseExpr('y = sin(24x)'),
+      parseExpr('y = 0'),
+      { xlo: -Math.PI, xhi: Math.PI, ylo: -1, yhi: 1 },
+      4096,
+    );
+    // sin(24x) has 49 zeros in [-pi, pi], including both endpoints.
+    expect(points.length).toBeGreaterThanOrEqual(45);
+  });
 });

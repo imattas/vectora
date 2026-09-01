@@ -48,8 +48,9 @@ workspace backups, and exports.
   `tangent(circle(O, r), P)` validate degenerate or off-circle inputs and
   produce line overlays.
 - Nonlinear curve intersections use bounded deterministic Newton seeds,
-  deduplication, clipping, and an evaluation budget. They are computed from
-  idle work rather than pointer handlers.
+  deduplication, clipping, and an evaluation budget. The seed lattice is
+  x-oriented so dense oscillatory crossings receive enough independent starts;
+  results are computed from idle work rather than pointer handlers.
 - Formatted previews are explicitly non-editable and editor automation targets
   the canonical source text node, preventing preview glyphs from being inserted
   or counted as duplicate equation content.
@@ -69,7 +70,7 @@ workspace backups, and exports.
 The current implementation has repeatedly passed:
 
 ```text
-vitest: 37 files, 569 tests passed
+vitest: 37 files, 570 tests passed
 npm run typecheck: passed
 npm run web:build: passed
 npm run test:editor: 20 scenarios passed
@@ -90,9 +91,9 @@ width.
    with independent numerator, denominator, exponent, and radicand DOM slots.
 2. Shader-rendered implicit curves in SVG require a raster fallback. Overlay
    curves, points, and geometry are emitted as vector primitives.
-3. Numerical curve intersections can miss singular, tangent, or very closely
-   spaced roots outside the bounded seed/evaluation budget; such candidates
-   should be supplemented by adaptive subdivision if exact coverage is needed.
+3. Numerical curve intersections can still miss singular, tangent, or very
+   closely spaced roots outside the bounded seed/evaluation budget; exact
+   coverage would require a more expensive adaptive subdivision pass.
 4. Workspace import/export is local-first and intentionally has no account or
    server synchronization layer.
 
