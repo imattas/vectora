@@ -3360,8 +3360,30 @@ function saveSvg() {
     }
     return pts.length > 1 ? `<polyline points="${pts.join(' ')}" fill="none" stroke="${escape(cssColor(theme.palette[eq.colorIndex]))}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>` : '';
   }).join('');
+  const geometryColor = (object: GeometryObject) => {
+    const row = [...geometryAnalysis.byRow.entries()].find(([, values]) => values.includes(object))?.[0] ?? 0;
+    return cssColor(theme.palette[equations[row]?.colorIndex ?? 0]);
+  };
+  const vectorGeometry = [...geometryAnalysis.objects, ...geometryAnalysis.derived].map(object => {
+    const stroke = escape(geometryColor(object));
+    if (object.kind === 'point') return `<circle cx="${sx(object.point.x)}" cy="${sy(object.point.y)}" r="4" fill="${stroke}"/>`;
+    if (object.kind === 'circle') return `<circle cx="${sx(object.center.x)}" cy="${sy(object.center.y)}" r="${object.radius / (view.upp * (window.devicePixelRatio || 1))}" fill="none" stroke="${stroke}" stroke-width="1.75"/>`;
+    if (object.kind === 'polygon') {
+      const points = object.points.map(point => `${sx(point.x)},${sy(point.y)}`).join(' ');
+      return `<polygon points="${points}" fill="none" stroke="${stroke}" stroke-width="1.75" stroke-linejoin="round"/>`;
+    }
+    if (object.kind === 'line' || object.kind === 'ray' || object.kind === 'segment') {
+      const dx = object.b.x - object.a.x, dy = object.b.y - object.a.y;
+      const length = Math.hypot(dx, dy); if (length <= 1e-12) return '';
+      const extent = Math.max(width, height) * view.upp * (window.devicePixelRatio || 1) * 2;
+      const from = object.kind === 'line' ? -extent : 0;
+      const to = object.kind === 'segment' ? length : extent;
+      return `<line x1="${sx(object.a.x + dx / length * from)}" y1="${sy(object.a.y + dy / length * from)}" x2="${sx(object.a.x + dx / length * to)}" y2="${sy(object.a.y + dy / length * to)}" stroke="${stroke}" stroke-width="1.75" stroke-linecap="round"/>`;
+    }
+    return '';
+  }).join('');
   const vectorPoints = lastOverlayExtras.points.map(point => `<circle cx="${sx(point.x)}" cy="${sy(point.y)}" r="${point.r ?? 5}" fill="${escape(point.color)}"/>`).join('');
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><title>Vectora graph</title><desc>${escape(equations.map(e => e.text).filter(Boolean).join('; '))}</desc><image href="${image}" width="${width}" height="${height}" preserveAspectRatio="none"/>${vectorCurves}${vectorOverlay}${vectorPoints}</svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><title>Vectora graph</title><desc>${escape(equations.map(e => e.text).filter(Boolean).join('; '))}</desc><image href="${image}" width="${width}" height="${height}" preserveAspectRatio="none"/>${vectorCurves}${vectorGeometry}${vectorOverlay}${vectorPoints}</svg>`;
   const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
   const link = document.createElement('a'); link.href = url; link.download = 'vectora-graph.svg'; link.style.display = 'none'; document.body.append(link); link.click();
   setTimeout(() => { URL.revokeObjectURL(url); link.remove(); }, 1000);
