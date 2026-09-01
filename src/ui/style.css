@@ -301,6 +301,10 @@ html, body {
 /* Rows inside a collapsed group; they stay in the DOM (copy/undo/share). */
 #equations .eq-hidden { display: none; }
 .eq-line.focused { background: var(--eq-focus); }
+.function-autocomplete { position: fixed; z-index: 40; display: grid; min-width: 170px; max-width: 260px; max-height: 220px; overflow-y: auto; padding: 4px; border: 1px solid var(--panel-border); border-radius: 6px; background: var(--panel-bg); box-shadow: 0 5px 18px var(--panel-shadow); }
+.function-autocomplete[hidden] { display: none; }
+.function-suggestion { border: 0; border-radius: 4px; background: transparent; color: var(--text); cursor: pointer; padding: 6px 8px; text-align: left; font: 13px ui-monospace, monospace; }
+.function-suggestion:hover, .function-suggestion:focus-visible { background: var(--eq-focus); color: var(--accent); outline: none; }
 .math-source { display: none; white-space: pre-wrap; }
 .eq-line.focused .math-source { display: inline; }
 .math-preview { display: inline; white-space: pre-wrap; pointer-events: none; user-select: none; }

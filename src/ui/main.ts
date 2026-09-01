@@ -81,6 +81,7 @@ import { makeSymbolKeyboard } from '../components/symbol-keyboard.ts';
 import { renderMathPreview } from '../components/math-display.ts';
 import { DEFAULT_GRAPH_SETTINGS, loadGraphSettings, saveGraphSettings, type GraphSettings } from '../components/graph-settings.ts';
 import { exportWorkspaces, importWorkspaces, listWorkspaces, saveWorkspace } from '../state/workspaces.ts';
+import { getFunctionCompletions } from '../components/function-autocomplete.ts';
 
 interface Equation {
   id: number;
@@ -1426,6 +1427,36 @@ const lineText = (line: HTMLElement): string => {
   return (copy.textContent ?? '').replace(/ /g, ' ');
 };
 
+const autocomplete = document.createElement('div');
+autocomplete.className = 'function-autocomplete'; autocomplete.hidden = true;
+autocomplete.setAttribute('role', 'listbox'); autocomplete.setAttribute('aria-label', 'Function suggestions');
+document.body.append(autocomplete);
+let autocompleteState: { line: number; start: number; end: number } | null = null;
+
+function hideAutocomplete() { autocomplete.hidden = true; autocomplete.replaceChildren(); autocompleteState = null; }
+function showAutocomplete() {
+  const pos = caretPos(); if (!pos) { hideAutocomplete(); return; }
+  const line = lineEls()[pos.line]; const text = lineText(line); const prefix = text.slice(0, pos.offset).match(/[A-Za-z][A-Za-z0-9_]*$/)?.[0] ?? '';
+  const matches = getFunctionCompletions(prefix);
+  if (!matches.length) { hideAutocomplete(); return; }
+  autocompleteState = { line: pos.line, start: pos.offset - prefix.length, end: pos.offset };
+  autocomplete.replaceChildren();
+  for (const name of matches) {
+    const item = document.createElement('button'); item.type = 'button'; item.className = 'function-suggestion'; item.textContent = `${name}(…`;
+    item.setAttribute('role', 'option'); item.addEventListener('mousedown', event => event.preventDefault());
+    item.addEventListener('click', () => {
+      if (!autocompleteState) return;
+      const target = autocompleteState;
+      selectLineRange(target.line, target.start, target.end);
+      hideAutocomplete(); insertStatements(`${name}()`);
+      // Leave the caret inside the generated call, ready for its argument.
+      setCaret(target.line, target.start + name.length + 1);
+    });
+    autocomplete.append(item);
+  }
+  const rect = line.getBoundingClientRect(); autocomplete.style.left = `${rect.left + 28}px`; autocomplete.style.top = `${rect.bottom + 2}px`; autocomplete.hidden = false;
+}
+
 function setLineSource(line: HTMLElement, text: string): void {
   const source = line.querySelector<HTMLElement>('.math-source');
   if (source) source.textContent = text;
@@ -1467,6 +1498,14 @@ function setCaret(line: number, offset: number) {
     remaining -= len;
   }
   sel.setBaseAndExtent(el, el.childNodes.length, el, el.childNodes.length);
+}
+
+function selectLineRange(lineIndex: number, start: number, end: number) {
+  const source = lineEls()[lineIndex]?.querySelector<HTMLElement>('.math-source');
+  const text = source?.firstChild;
+  if (!source || !text) return;
+  const range = document.createRange(); range.setStart(text, Math.max(0, start)); range.setEnd(text, Math.max(0, end));
+  const selection = getSelection(); selection?.removeAllRanges(); selection?.addRange(range);
 }
 
 // --- undo/redo ---
@@ -2129,6 +2168,7 @@ listEl.addEventListener('input', e => {
     recompileAll();
     reconcile();
   }
+  showAutocomplete();
   // A normal edit is the share action: do not leave the address bar naming
   // the previous document while the user is still looking at the new one.
   saveUrl(true);
@@ -2149,6 +2189,7 @@ listEl.addEventListener('pointerdown', e => {
 // engines skip the historyUndo beforeinput when their native stack is empty.
 listEl.addEventListener('keydown', e => {
   if (fromWidget(e)) return; // let bound inputs handle their own keys natively
+  if (e.key === 'Escape' && !autocomplete.hidden) { hideAutocomplete(); e.preventDefault(); return; }
   const mod = e.metaKey || e.ctrlKey;
   if (mod && !e.altKey && e.key.toLowerCase() === 'z') {
     e.preventDefault();
