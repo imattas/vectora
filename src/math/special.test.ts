@@ -1,12 +1,24 @@
 import { describe, expect, it } from 'vitest';
 import { parseExpr } from './expr.ts';
-import { specialPoints } from './special.ts';
+import { polylineSpecialPoints, specialPoints } from './special.ts';
 
 function points(s: string, r = 10) {
   return specialPoints(parseExpr(s), -r, r, -r, r);
 }
 
 describe('specialPoints', () => {
+  it('finds x/y intercepts on a line segment', () => {
+    const pts = polylineSpecialPoints([{ x: -2, y: -1 }, { x: 2, y: 1 }], false, -5, 5, -5, 5);
+    expect(pts).toHaveLength(1);
+    expect(pts[0]).toMatchObject({ x: 0, y: 0 });
+    expect(pts[0].lines[0]).toBe('x-intercept');
+  });
+
+  it('finds distinct axis intercepts across an open polyline', () => {
+    const pts = polylineSpecialPoints([{ x: -2, y: 1 }, { x: 0, y: -1 }, { x: 2, y: 1 }], false, -5, 5, -5, 5);
+    expect(pts.map(p => [p.x, p.y])).toEqual([[ -1, 0 ], [ 0, -1 ], [ 1, 0 ]]);
+  });
+
   it('labels roots and the y-intercept of y = f(x)', () => {
     const pts = points('x^2 - 2');
     expect(pts.length).toBe(3);

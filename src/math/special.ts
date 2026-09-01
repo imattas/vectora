@@ -15,6 +15,53 @@ export interface SpecialPoint {
   lines: string[];
 }
 
+/** Axis crossings of a finite polyline (segments, point arrays, or samples). */
+export function axisSpecialPoint(
+  x: number, y: number, xlo: number, xhi: number, ylo: number, yhi: number,
+): SpecialPoint | null {
+  if (!Number.isFinite(x) || !Number.isFinite(y) || x < xlo || x > xhi || y < ylo || y > yhi) return null;
+  if (Math.abs(y) <= 1e-9) return { x, y: 0, lines: ['x-intercept', `x = ${fmtRoot(x)}`] };
+  if (Math.abs(x) <= 1e-9) return { x: 0, y, lines: ['y-intercept', `y = ${fmtRoot(y)}`] };
+  return null;
+}
+
+export function polylineSpecialPoints(
+  points: Array<{ x: number; y: number }>,
+  closed: boolean,
+  xlo: number,
+  xhi: number,
+  ylo: number,
+  yhi: number,
+): SpecialPoint[] {
+  const out: SpecialPoint[] = [];
+  const add = (x: number, y: number, axis: 'x' | 'y') => {
+    if (!Number.isFinite(x) || !Number.isFinite(y) || x < xlo || x > xhi || y < ylo || y > yhi) return;
+    if (out.some(p => Math.hypot(p.x - x, p.y - y) <= 1e-9)) return;
+    const value = axis === 'x' ? x : y;
+    out.push({ x, y, lines: [`${axis}-intercept`, `${axis} = ${fmtRoot(value)}`] });
+  };
+  const count = closed ? points.length : Math.max(0, points.length - 1);
+  for (let i = 0; i < count; i++) {
+    const a = points[i], b = points[(i + 1) % points.length];
+    if (![a?.x, a?.y, b?.x, b?.y].every(Number.isFinite)) continue;
+    const dy = b.y - a.y;
+    if (Math.abs(dy) > 1e-12) {
+      const t = -a.y / dy;
+      if (t >= -1e-12 && t <= 1 + 1e-12) add(a.x + t * (b.x - a.x), 0, 'x');
+    } else if (Math.abs(a.y) <= 1e-12) {
+      add(a.x, 0, 'x'); add(b.x, 0, 'x');
+    }
+    const dx = b.x - a.x;
+    if (Math.abs(dx) > 1e-12) {
+      const t = -a.x / dx;
+      if (t >= -1e-12 && t <= 1 + 1e-12) add(0, a.y + t * (b.y - a.y), 'y');
+    } else if (Math.abs(a.x) <= 1e-12) {
+      add(0, a.y, 'y'); add(0, b.y, 'y');
+    }
+  }
+  return out;
+}
+
 const NUM0: Expr = { kind: 'num', value: 0 };
 
 /** Display a root with ~12 significant digits, trimmed. */

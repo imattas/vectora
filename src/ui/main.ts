@@ -40,7 +40,7 @@ import { type GridField, angularSpacing, buildGridField, sampleGradMag } from '.
 import { type Classified, classify } from '../math/plot.ts';
 import { solveSystem } from '../math/solve.ts';
 import { solveLinearSystem, solveScalar } from '../math/formula.ts';
-import { type SpecialPoint, specialPoints } from '../math/special.ts';
+import { axisSpecialPoint, type SpecialPoint, polylineSpecialPoints, specialPoints } from '../math/special.ts';
 import { ANALYSIS_ONLY_FORMS, analyzeGeometry, type GeometryAnalysis } from '../math/geometry-analysis.ts';
 import { drawGeometryOverlay } from '../components/geometry/overlay.ts';
 import { geometryDistance } from '../components/geometry/hit-testing.ts';
@@ -2664,7 +2664,7 @@ function hoverEnvKey(cls: Classified): string {
  */
 function computeSpecialPoints(eq: Equation) {
   const cls = eq.cls;
-  if (!cls || eq.error || !eq.parsed || cls.plot.type !== 'implicit2d' || cls.animated) return;
+  if (!cls || eq.error || !eq.parsed || cls.animated) return;
   const { halfW, halfH } = hoverHalfSpan();
   let expr = eq.parsed;
   if (cls.params.length) {
@@ -2676,7 +2676,41 @@ function computeSpecialPoints(eq: Equation) {
   const xhi = view.cx + halfW * 1.5;
   const ylo = view.cy - halfH * 1.5;
   const yhi = view.cy + halfH * 1.5;
-  const pts = specialPoints(expr, xlo, xhi, ylo, yhi);
+  const plot = cls.plot;
+  let pts: SpecialPoint[] = [];
+  if (plot.type === 'implicit2d') {
+    pts = specialPoints(expr, xlo, xhi, ylo, yhi);
+  } else if (plot.type === 'polygon') {
+    const points: Array<{ x: number; y: number }> = [];
+    try {
+      for (let i = 0; i + 1 < plot.pts.length; i += 2) points.push({ x: evaluate(plot.pts[i], constEnv), y: evaluate(plot.pts[i + 1], constEnv) });
+    } catch { return; }
+    pts = polylineSpecialPoints(points, plot.closed, xlo, xhi, ylo, yhi);
+  } else if (plot.type === 'plist' && plot.dim === 2) {
+    for (const pair of plot.pts) {
+      try {
+        const point = axisSpecialPoint(evaluate(pair[0], constEnv), evaluate(pair[1], constEnv), xlo, xhi, ylo, yhi);
+        if (point && !pts.some(p => p.x === point.x && p.y === point.y)) pts.push(point);
+      } catch { /* unevaluable array item */ }
+    }
+  } else if (plot.type === 'vlist') {
+    for (let i = 0; i < plot.values.length; i++) {
+      try {
+        const point = axisSpecialPoint(i + 1, evaluate(plot.values[i], constEnv), xlo, xhi, ylo, yhi);
+        if (point && !pts.some(p => p.x === point.x && p.y === point.y)) pts.push(point);
+      } catch { /* unevaluable array item */ }
+    }
+  } else if (plot.type === 'pcurve' && plot.dim === 2) {
+    const points: Array<{ x: number; y: number }> = [];
+    for (let i = 0; i <= 256; i++) {
+      try {
+        const env = { ...constEnv, u: i / 256 };
+        const x = evaluate(plot.comps[0], env); const y = evaluate(plot.comps[1], env);
+        if (Number.isFinite(x) && Number.isFinite(y)) points.push({ x, y });
+      } catch { /* skip a discontinuous sample */ }
+    }
+    pts = polylineSpecialPoints(points, false, xlo, xhi, ylo, yhi);
+  } else return;
   eq.spCache = { text: eq.text, env: hoverEnvKey(cls), xlo, xhi, ylo, yhi, pts };
 }
 
@@ -2688,7 +2722,7 @@ function computeSpecialPoints(eq: Equation) {
  */
 function pointsFor(eq: Equation): SpecialPoint[] {
   const cls = eq.cls;
-  if (!cls || eq.error || !eq.parsed || cls.plot.type !== 'implicit2d' || cls.animated) return [];
+  if (!cls || eq.error || !eq.parsed || cls.animated || !['implicit2d', 'polygon', 'plist', 'vlist', 'pcurve'].includes(cls.plot.type)) return [];
   const { halfW, halfH } = hoverHalfSpan();
   const envKey = hoverEnvKey(cls);
   const c = eq.spCache;
@@ -2762,7 +2796,10 @@ function updateHover(clientX: number, clientY: number) {
   }
   geometryHover = geometryBest;
   geometryHoverPoint = geometryBest ? hoverMath : null;
-  if (geometryBest) {
+  // A special point (axis intercept/root) is more specific than the line it
+  // sits on. Let it win so hovering a segment's intercept shows the point
+  // coordinates instead of replacing the tooltip with the segment readout.
+  if (geometryBest && !best) {
     const row = [...geometryAnalysis.byRow.entries()].find(([, values]) => values.includes(geometryBest!))?.[0];
     const readout = row === undefined ? undefined : geometryAnalysis.readouts.get(row);
     if (readout) {
