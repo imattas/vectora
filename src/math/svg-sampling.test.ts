@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseExpr } from './expr.ts';
-import { sampleImplicitContours } from './svg-sampling.ts';
+import { sampleImplicitContours, sampleImplicitVerticalContours } from './svg-sampling.ts';
 
 describe('sampleImplicitContours', () => {
   const bounds = { xlo: -3, xhi: 3, ylo: -3, yhi: 3 };
@@ -20,5 +20,13 @@ describe('sampleImplicitContours', () => {
     expect(paths[0][0][0]).toBeCloseTo(-3, 1);
     expect(paths[0][0][1]).toBeCloseTo(-3, 1);
     expect(paths[0].at(-1)?.[0]).toBeCloseTo(3, 1);
+  });
+
+  it('samples vertical contours such as x equals a constant', () => {
+    const paths = sampleImplicitVerticalContours(parseExpr('x = 1'), bounds, { columns: 40 });
+    expect(paths).toHaveLength(1);
+    expect(paths[0][0][0]).toBeCloseTo(1, 5);
+    expect(paths[0][0][1]).toBeCloseTo(-3, 1);
+    expect(paths[0].at(-1)?.[1]).toBeCloseTo(3, 1);
   });
 });

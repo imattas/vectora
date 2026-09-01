@@ -91,7 +91,8 @@ width.
    with independent numerator, denominator, exponent, and radicand DOM slots.
 2. Unsupported shader-rendered layers in SVG require a raster fallback. The
    common 2D implicit-curve path, overlays, points, and geometry are emitted as
-   vector primitives; export-time Newton sampling remains an approximation.
+  vector primitives, including an orthogonal fallback for vertical loci;
+  export-time Newton sampling remains an approximation.
 3. Numerical curve intersections can still miss singular, tangent, or very
    closely spaced roots outside the bounded seed/evaluation budget; exact
    coverage would require a more expensive adaptive subdivision pass.

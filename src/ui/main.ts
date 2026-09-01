@@ -42,7 +42,7 @@ import { solveSystem } from '../math/solve.ts';
 import { solveLinearSystem, solveScalar } from '../math/formula.ts';
 import { axisSpecialPoint, type SpecialPoint, polylineSpecialPoints, specialPoints } from '../math/special.ts';
 import { findCurveIntersections } from '../math/point-of-interest.ts';
-import { sampleImplicitContours } from '../math/svg-sampling.ts';
+import { sampleImplicitContours, sampleImplicitVerticalContours } from '../math/svg-sampling.ts';
 import { ANALYSIS_ONLY_FORMS, analyzeGeometry, type GeometryAnalysis } from '../math/geometry-analysis.ts';
 import { drawGeometryOverlay } from '../components/geometry/overlay.ts';
 import { geometryDistance } from '../components/geometry/hit-testing.ts';
@@ -3347,12 +3347,19 @@ function saveSvg() {
   };
   const vectorCurves = equations
     .filter(eq => !eq.hidden && !eq.error && eq.cls?.plot.type === 'implicit2d' && eq.parsed)
-    .flatMap(eq => sampleImplicitContours(eq.parsed!, contourBounds).map(points => {
+    .flatMap(eq => {
+      const contours = sampleImplicitContours(eq.parsed!, contourBounds);
+      // A y-root solver cannot see vertical loci such as x = 1. Only run the
+      // orthogonal pass when the normal pass found nothing, avoiding duplicate
+      // left/right branches for ordinary curves such as circles.
+      const paths = contours.length ? contours : sampleImplicitVerticalContours(eq.parsed!, contourBounds);
+      return paths.map(points => {
       const coords = points.map(([x, y]) => `${sx(x)},${sy(y)}`).join(' ');
       return points.length > 1
         ? `<polyline points="${coords}" fill="none" stroke="${escape(cssColor(theme.palette[eq.colorIndex]))}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`
         : '';
-    }))
+      });
+    })
     .join('');
   const geometryColor = (object: GeometryObject) => {
     const row = [...geometryAnalysis.byRow.entries()].find(([, values]) => values.includes(object))?.[0] ?? 0;

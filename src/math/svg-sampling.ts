@@ -22,56 +22,70 @@ const residual = (expr: Expr, x: number, y: number): number => {
  * while invalid/gapped samples are split instead of being joined across a
  * discontinuity. This is intended for export-time work, not animation.
  */
-export function sampleImplicitContours(expr: Expr, bounds: SampleBounds, options: SampleOptions = {}): Point[][] {
+function sampleOrientedContours(expr: Expr, bounds: SampleBounds, options: SampleOptions, vertical: boolean): Point[][] {
   const columns = Math.max(8, Math.floor(options.columns ?? 640));
   const seeds = Math.max(3, Math.floor(options.seeds ?? 10));
   const iterations = Math.max(4, Math.floor(options.iterations ?? 16));
   const tolerance = options.tolerance ?? 1e-5;
-  const spanX = bounds.xhi - bounds.xlo;
-  const spanY = bounds.yhi - bounds.ylo;
-  if (!(spanX > 0 && spanY > 0)) return [];
+  const primaryLo = vertical ? bounds.ylo : bounds.xlo;
+  const primaryHi = vertical ? bounds.yhi : bounds.xhi;
+  const rootLo = vertical ? bounds.xlo : bounds.ylo;
+  const rootHi = vertical ? bounds.xhi : bounds.yhi;
+  const primarySpan = primaryHi - primaryLo;
+  const rootSpan = rootHi - rootLo;
+  if (!(primarySpan > 0 && rootSpan > 0)) return [];
 
-  const tracks: Array<{ points: Point[]; lastY: number; column: number }> = [];
-  const maxJoin = Math.max(spanY / seeds * 2.5, spanY / columns * 8);
+  const tracks: Array<{ points: Point[]; lastRoot: number; column: number }> = [];
+  const maxJoin = Math.max(rootSpan / seeds * 2.5, rootSpan / columns * 8);
   for (let column = 0; column < columns; column++) {
-    const x = bounds.xlo + (column / (columns - 1)) * spanX;
+    const primary = primaryLo + (column / (columns - 1)) * primarySpan;
     const roots: number[] = [];
-    const hy = Math.max(spanY * 1e-5, 1e-7);
+    const h = Math.max(rootSpan * 1e-5, 1e-7);
     for (let seed = 0; seed < seeds; seed++) {
-      let y = bounds.ylo + ((seed + 0.5) / seeds) * spanY;
+      let root = rootLo + ((seed + 0.5) / seeds) * rootSpan;
       let converged = false;
       for (let step = 0; step < iterations; step++) {
-        const f = residual(expr, x, y);
+        const f = vertical ? residual(expr, root, primary) : residual(expr, primary, root);
         if (!Number.isFinite(f)) break;
-        const fy = (residual(expr, x, y + hy) - f) / hy;
-        if (!Number.isFinite(fy) || Math.abs(fy) < 1e-12) break;
-        const delta = f / fy;
-        if (!Number.isFinite(delta) || Math.abs(delta) > spanY * 2) break;
-        y -= delta;
-        if (y < bounds.ylo - spanY * 0.02 || y > bounds.yhi + spanY * 0.02) break;
-        if (Math.abs(residual(expr, x, y)) <= tolerance) { converged = true; break; }
+        const next = vertical ? residual(expr, root + h, primary) : residual(expr, primary, root + h);
+        const derivative = (next - f) / h;
+        if (!Number.isFinite(derivative) || Math.abs(derivative) < 1e-12) break;
+        const delta = f / derivative;
+        if (!Number.isFinite(delta) || Math.abs(delta) > rootSpan * 2) break;
+        root -= delta;
+        if (root < rootLo - rootSpan * 0.02 || root > rootHi + rootSpan * 0.02) break;
+        if (Math.abs(vertical ? residual(expr, root, primary) : residual(expr, primary, root)) <= tolerance) { converged = true; break; }
       }
-      const clamped = Math.min(bounds.yhi, Math.max(bounds.ylo, y));
-      if (converged && y >= bounds.ylo - tolerance * 4 && y <= bounds.yhi + tolerance * 4
-        && roots.every(root => Math.abs(root - clamped) > maxJoin * 0.35)) roots.push(clamped);
+      const clamped = Math.min(rootHi, Math.max(rootLo, root));
+      if (converged && root >= rootLo - tolerance * 4 && root <= rootHi + tolerance * 4
+        && roots.every(existing => Math.abs(existing - clamped) > maxJoin * 0.35)) roots.push(clamped);
     }
     roots.sort((a, b) => a - b);
     const used = new Set<number>();
-    for (const y of roots) {
+    for (const root of roots) {
       let best = -1; let distance = Infinity;
       tracks.forEach((track, index) => {
         if (used.has(index) || track.column !== column - 1) return;
-        const d = Math.abs(track.lastY - y);
+        const d = Math.abs(track.lastRoot - root);
         if (d < distance && d <= maxJoin) { best = index; distance = d; }
       });
       if (best < 0) {
-        tracks.push({ points: [[x, y]], lastY: y, column });
+        tracks.push({ points: [vertical ? [root, primary] : [primary, root]], lastRoot: root, column });
         used.add(tracks.length - 1);
       } else {
         const track = tracks[best];
-        track.points.push([x, y]); track.lastY = y; track.column = column; used.add(best);
+        track.points.push(vertical ? [root, primary] : [primary, root]); track.lastRoot = root; track.column = column; used.add(best);
       }
     }
   }
   return tracks.filter(track => track.points.length >= 2).map(track => track.points);
+}
+
+export function sampleImplicitContours(expr: Expr, bounds: SampleBounds, options: SampleOptions = {}): Point[][] {
+  return sampleOrientedContours(expr, bounds, options, false);
+}
+
+/** Sample contours whose tangent is vertical, such as `x = 1`. */
+export function sampleImplicitVerticalContours(expr: Expr, bounds: SampleBounds, options: SampleOptions = {}): Point[][] {
+  return sampleOrientedContours(expr, bounds, options, true);
 }
