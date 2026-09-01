@@ -4,6 +4,7 @@ export interface Workspace {
   updatedAt: number;
   equations: string[];
   view?: { cx: number; cy: number; upp: number };
+  settings?: { grid: boolean; axes: boolean; labels: boolean; points: boolean; snap: boolean; angleUnit: 'degrees' | 'radians' };
 }
 
 const STORAGE_KEY = 'vectora-workspaces-v1';
@@ -17,9 +18,9 @@ const write = (items: Workspace[]) => { try { localStorage.setItem(STORAGE_KEY, 
 
 export function listWorkspaces(): Workspace[] { return read().sort((a, b) => b.updatedAt - a.updatedAt); }
 export function loadWorkspace(id: string): Workspace | null { return read().find(item => item.id === id) ?? null; }
-export function saveWorkspace(name: string, equations: string[], view?: Workspace['view']): Workspace {
+export function saveWorkspace(name: string, equations: string[], view?: Workspace['view'], settings?: Workspace['settings']): Workspace {
   const items = read(); const existing = items.find(item => item.name === name);
-  const workspace: Workspace = { id: existing?.id ?? crypto.randomUUID(), name, updatedAt: Date.now(), equations: equations.filter(Boolean), view };
+  const workspace: Workspace = { id: existing?.id ?? crypto.randomUUID(), name, updatedAt: Date.now(), equations: equations.filter(Boolean), view, settings };
   write([workspace, ...items.filter(item => item.id !== workspace.id)]); return workspace;
 }
 export function deleteWorkspace(id: string): void { write(read().filter(item => item.id !== id)); }

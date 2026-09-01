@@ -211,6 +211,7 @@ let geometryHoverPoint: { x: number; y: number } | null = null;
 let curveHover: { eq: Equation; point: { x: number; y: number } } | null = null;
 const geometryReadouts = document.getElementById('geometry-readouts')!;
 let graphSettings: GraphSettings = loadGraphSettings();
+let syncGraphSettingsUi: (() => void) | null = null;
 
 const view: View2D = { cx: 0, cy: 0, upp: 0.01 };
 const camera: Camera3D = { target: [0, 0, 0], radius: 14, theta: -Math.PI / 3, phi: Math.PI / 5.5 };
@@ -3244,6 +3245,7 @@ if (settingsButton) {
   angleLabel.append(angleSelect); settings.append(angleLabel);
   const reset = makeButton('Reset', 'Reset graph settings', () => { graphSettings = { ...DEFAULT_GRAPH_SETTINGS }; saveGraphSettings(graphSettings); settings.querySelectorAll<HTMLInputElement>('input').forEach((input, i) => { input.checked = [graphSettings.grid, graphSettings.axes, graphSettings.labels, graphSettings.points, graphSettings.snap][i]; }); angleSelect.value = graphSettings.angleUnit; requestRender(); }, 'graph-settings-reset');
   settings.append(reset); document.body.append(settings);
+  syncGraphSettingsUi = () => { settings.querySelectorAll<HTMLInputElement>('input').forEach((input, i) => { input.checked = [graphSettings.grid, graphSettings.axes, graphSettings.labels, graphSettings.points, graphSettings.snap][i]; }); angleSelect.value = graphSettings.angleUnit; };
   settingsButton.addEventListener('click', () => { settings.hidden = !settings.hidden; settingsButton.setAttribute('aria-expanded', String(!settings.hidden)); });
   settingsButton.setAttribute('aria-expanded', 'false');
   document.addEventListener('pointerdown', event => { if (!settings.hidden && event.target instanceof Node && !settings.contains(event.target) && event.target !== settingsButton) { settings.hidden = true; settingsButton.setAttribute('aria-expanded', 'false'); } });
@@ -3368,13 +3370,13 @@ if (addActions) {
   addActions.append(makeButton('Clear', 'Clear all expressions', clearWorkspace, 'sidebar-action'));
   addActions.append(makeButton('Save', 'Save a named local workspace', () => {
     const name = window.prompt('Workspace name', `Graph ${listWorkspaces().length + 1}`)?.trim();
-    if (name) { saveWorkspace(name, equations.map(eq => eq.text), { cx: view.cx, cy: view.cy, upp: view.upp }); refreshRecent?.(); }
+    if (name) { saveWorkspace(name, equations.map(eq => eq.text), { cx: view.cx, cy: view.cy, upp: view.upp }, graphSettings); refreshRecent?.(); }
   }, 'sidebar-action'));
   addActions.append(makeButton('Open', 'Open a saved local workspace', () => {
     const items = listWorkspaces(); if (!items.length) { window.alert('No saved workspaces yet.'); return; }
     const name = window.prompt(`Open workspace:\n${items.map(item => item.name).join('\n')}`, items[0].name)?.trim();
     const item = items.find(candidate => candidate.name === name); if (!item) return;
-    equations.length = 0; item.equations.forEach(text => addEquation(text)); if (item.view) Object.assign(view, item.view);
+    equations.length = 0; item.equations.forEach(text => addEquation(text)); if (item.view) Object.assign(view, item.view); if (item.settings) { graphSettings = { ...DEFAULT_GRAPH_SETTINGS, ...item.settings, angleUnit: item.settings.angleUnit === 'radians' ? 'radians' : 'degrees' }; saveGraphSettings(graphSettings); syncGraphSettingsUi?.(); }
     recompileAll(); renderAll(); saveUrl(); requestRender();
   }, 'sidebar-action'));
   const recentWrap = document.createElement('span'); recentWrap.className = 'workspace-recent';
@@ -3387,7 +3389,7 @@ if (addActions) {
   };
   recent.addEventListener('change', () => {
     const item = recent.value ? loadWorkspace(recent.value) : null; if (!item) return;
-    equations.length = 0; item.equations.forEach(text => addEquation(text)); if (item.view) Object.assign(view, item.view);
+    equations.length = 0; item.equations.forEach(text => addEquation(text)); if (item.view) Object.assign(view, item.view); if (item.settings) { graphSettings = { ...DEFAULT_GRAPH_SETTINGS, ...item.settings, angleUnit: item.settings.angleUnit === 'radians' ? 'radians' : 'degrees' }; saveGraphSettings(graphSettings); syncGraphSettingsUi?.(); }
     recompileAll(); renderAll(); saveUrl(); requestRender(); recent.value = '';
   });
   const removeRecent = makeButton('Delete', 'Delete selected local workspace', () => {
