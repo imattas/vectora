@@ -8,13 +8,19 @@ export const KEY_GROUPS: ReadonlyArray<readonly [string, readonly KeyboardKey[]]
   }))],
   ['Powers & fractions', [
     { label: 'xʸ', insert: '^' }, { label: 'x²', insert: '^2' },
-    { label: '√', insert: 'sqrt(' }, { label: 'a/b', insert: '()/' },
+    { label: '√', insert: 'sqrt(' }, { label: 'a/b', insert: '1/2' },
     { label: 'abs', insert: 'abs(' },
   ]],
   ['Functions', ['sin', 'cos', 'tan', 'sqrt', 'abs', 'ln', 'log', 'exp', 'floor', 'ceil'].map(label => ({ label, insert: `${label}(` }))],
-  ['Common', ['π', 'τ', 'e', 'i', '∞'].map(label => ({ label, insert: label }))],
+  ['Common', [
+    { label: 'π', insert: 'pi' }, { label: 'τ', insert: 'tau' },
+    { label: 'e', insert: 'e' }, { label: 'i', insert: 'i' }, { label: '∞', insert: 'inf' },
+  ]],
   ['Comparisons', ['≤', '≥', '<', '>', '='].map(label => ({ label, insert: label }))],
-  ['Calculus', ['∫', 'Σ', 'Π'].map(label => ({ label, insert: label }))],
+  ['Calculus', [
+    { label: '∫', insert: 'int[0..1] ' }, { label: 'Σ', insert: 'sum(n=1..10, )' },
+    { label: 'Π', insert: 'prod(n=1..10, )' },
+  ]],
   ['Geometry', ['θ', 'φ', 'α', 'β', 'γ', 'Δ'].map(label => ({ label, insert: label }))],
 ] as const;
 export interface SymbolKeyboardOptions { onBeforeOpen?: () => void; onInsert: (symbol: string) => void; }
