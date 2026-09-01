@@ -82,7 +82,6 @@ import { initOnboarding } from '../components/onboarding.ts';
 import { makeSymbolKeyboard } from '../components/symbol-keyboard.ts';
 import { renderMathPreview } from '../components/math-display.ts';
 import { DEFAULT_GRAPH_SETTINGS, loadGraphSettings, saveGraphSettings, type GraphSettings } from '../components/graph-settings.ts';
-import { deleteWorkspace, exportWorkspaces, importWorkspaces, listWorkspaces, loadWorkspace, saveWorkspace } from '../state/workspaces.ts';
 import { getFunctionCompletions } from '../components/function-autocomplete.ts';
 import { initMobileSheet } from '../components/mobile-sheet.ts';
 
@@ -3428,47 +3427,6 @@ if (addActions) {
   const index = equations.length - 1; const last = lineEls()[index]; if (last) { last.focus(); setCaret(index, 0); }
   }));
   addActions.append(makeButton('Clear', 'Clear all expressions', clearWorkspace, 'sidebar-action'));
-  addActions.append(makeButton('Save', 'Save a named local workspace', () => {
-    const name = window.prompt('Workspace name', `Graph ${listWorkspaces().length + 1}`)?.trim();
-    if (name) { saveWorkspace(name, equations.map(eq => eq.text), { cx: view.cx, cy: view.cy, upp: view.upp }, graphSettings); refreshRecent?.(); }
-  }, 'sidebar-action'));
-  addActions.append(makeButton('Open', 'Open a saved local workspace', () => {
-    const items = listWorkspaces(); if (!items.length) { window.alert('No saved workspaces yet.'); return; }
-    const name = window.prompt(`Open workspace:\n${items.map(item => item.name).join('\n')}`, items[0].name)?.trim();
-    const item = items.find(candidate => candidate.name === name); if (!item) return;
-    equations.length = 0; item.equations.forEach(text => addEquation(text)); if (item.view) Object.assign(view, item.view); if (item.settings) { graphSettings = { ...DEFAULT_GRAPH_SETTINGS, ...item.settings, angleUnit: item.settings.angleUnit === 'radians' ? 'radians' : 'degrees' }; saveGraphSettings(graphSettings); syncGraphSettingsUi?.(); }
-    recompileAll(); renderAll(); saveUrl(); requestRender();
-  }, 'sidebar-action'));
-  const recentWrap = document.createElement('span'); recentWrap.className = 'workspace-recent';
-  const recent = document.createElement('select'); recent.className = 'workspace-select'; recent.setAttribute('aria-label', 'Recent workspaces');
-  const refreshRecent = () => {
-    recent.replaceChildren();
-    const items = listWorkspaces();
-    const placeholder = document.createElement('option'); placeholder.value = ''; placeholder.textContent = items.length ? 'Recent workspaces…' : 'No saved workspaces'; recent.append(placeholder);
-    for (const item of items.slice(0, 8)) { const option = document.createElement('option'); option.value = item.id; option.textContent = item.name; recent.append(option); }
-  };
-  recent.addEventListener('change', () => {
-    const item = recent.value ? loadWorkspace(recent.value) : null; if (!item) return;
-    equations.length = 0; item.equations.forEach(text => addEquation(text)); if (item.view) Object.assign(view, item.view); if (item.settings) { graphSettings = { ...DEFAULT_GRAPH_SETTINGS, ...item.settings, angleUnit: item.settings.angleUnit === 'radians' ? 'radians' : 'degrees' }; saveGraphSettings(graphSettings); syncGraphSettingsUi?.(); }
-    recompileAll(); renderAll(); saveUrl(); requestRender(); recent.value = '';
-  });
-  const removeRecent = makeButton('Delete', 'Delete selected local workspace', () => {
-    const item = recent.value ? loadWorkspace(recent.value) : null; if (!item) return;
-    if (!window.confirm(`Delete workspace “${item.name}”?`)) return;
-    deleteWorkspace(item.id); refreshRecent();
-  }, 'sidebar-action workspace-delete');
-  recentWrap.append(recent, removeRecent); addActions.append(recentWrap); refreshRecent();
-  addActions.append(makeButton('Backup', 'Export or import local workspaces', () => {
-    const action = window.prompt('Type export or import', 'export')?.toLowerCase();
-    if (action === 'export') {
-      const blob = new Blob([exportWorkspaces()], { type: 'application/json' }); const url = URL.createObjectURL(blob);
-      const link = document.createElement('a'); link.href = url; link.download = 'vectora-workspaces.json'; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
-    } else if (action === 'import') {
-      const input = document.createElement('input'); input.type = 'file'; input.accept = 'application/json';
-      input.onchange = async () => { const file = input.files?.[0]; if (!file) return; try { importWorkspaces(await file.text()); window.alert('Workspace backup imported.'); } catch (error) { window.alert(error instanceof Error ? error.message : 'Could not import backup.'); } };
-      input.click();
-    }
-  }, 'sidebar-action'));
   addActions.append(makeButton('Save SVG', 'Save the current graph as an SVG file', saveSvg, 'sidebar-action'));
   let savedSymbolRange: Range | null = null;
   let savedSymbolCaret: { line: number; offset: number } | null = null;

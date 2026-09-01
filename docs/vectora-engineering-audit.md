@@ -64,7 +64,7 @@ workspace backups, and exports.
 
 | Area | Finding | Resolution | Status |
 | --- | --- | --- | --- |
-| Workspaces | Local save/open existed only as prompt-driven actions and lacked recents/deletion. | Added versioned local storage, recent selector, deletion confirmation, JSON backup import/export, and load API. | Fixed. |
+| Workspaces | Prompt-driven Save/Open/Backup/Recent/Delete controls competed with the editor and duplicated URL-based graph sharing. | Removed the workspace-management UI and its application imports; the graph remains shareable through its URL without a persistent toolbar surface. | Fixed; local workspace module remains isolated for any future deliberate persistence UX. |
 | Backup validation | Malformed records could enter storage with unsafe field shapes. | Validate records, timestamps, and equation strings during import. | Fixed. |
 | Installed app shell | The manifest made Vectora installable, but a cold offline launch had no cached shell. | Added a versioned service worker with cached shell assets, network-first navigation, and offline fallback. | Fixed; `dist-web/sw.js` verified. |
 | Help | New geometry, keyboard, point-of-interest, settings, mobile, and workspace flows were under-documented. | Expanded Help with About, Features, syntax, troubleshooting, controls, and examples. | Fixed. |
@@ -78,7 +78,7 @@ The current implementation has repeatedly passed:
 vitest: 38 files, 573 tests passed
 npm run typecheck: passed
 npm run web:build: passed
-npm run test:editor: 26 scenarios passed
+npm run test:editor: 28 scenarios passed
 git diff --check: passed
 http://localhost:8080/: HTTP 200
 GitHub Pages workflow: successful on prior pushed revisions
@@ -87,7 +87,8 @@ GitHub Pages workflow: successful on prior pushed revisions
 Manual browser checks covered onboarding dismissal, settings controls,
 nonlinear/axis point hover, pinned coordinate copy, mobile sheet collapse,
 mobile keyboard insertion, semantic preview navigation, and responsive canvas
-width.
+width. The UI cleanup also verifies that workspace-management controls are
+absent and that the editor/header use the deliberate technical type stack.
 
 ## Known limitations and follow-up work
 

@@ -399,6 +399,21 @@ await scenario('panel resize splitter supports keyboard bounds and reset', async
   check('panel splitter exposes bounds and reset behavior', initial !== null && minimum === '220' && Number(maximum) > 220 && reset === initial, JSON.stringify({ initial, minimum, maximum, reset }));
 });
 
+await scenario('workspace controls are removed and the editor uses the technical type scale', async () => {
+  await page.setViewportSize({ width: 1000, height: 700 });
+  await page.goto(ORIGIN + '/#y=x');
+  await page.waitForSelector('#sidebar-actions');
+  const state = await page.evaluate(() => ({
+    workspaceControls: [...document.querySelectorAll('#sidebar-actions button, #sidebar-actions select')]
+      .map(el => el.textContent?.trim() || el.getAttribute('aria-label') || '')
+      .filter(label => /^(save|open|backup)$/i.test(label) || /workspace/i.test(label)),
+    editorFont: getComputedStyle(document.querySelector('#equations')!).fontFamily,
+    headerFont: getComputedStyle(document.querySelector('#panel-header .brand')!).fontFamily,
+  }));
+  check('workspace controls are absent from the sidebar toolbar', state.workspaceControls.length === 0, JSON.stringify(state));
+  check('editor uses the deliberate technical font stack', /Inter/i.test(state.editorFont) && /Inter/i.test(state.headerFont), JSON.stringify(state));
+});
+
 await browser.close();
 server.kill();
 
