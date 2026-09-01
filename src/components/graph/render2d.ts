@@ -629,7 +629,7 @@ export class Renderer2D {
     layers: Layers2D,
     time = 0,
     env: Record<string, number> = {},
-    gridSpecs?: GridSpec[],
+    gridSpecs?: GridSpec[] | null,
   ): void {
     const { gl } = this;
     const w = gl.drawingBufferWidth;
@@ -646,6 +646,7 @@ export class Renderer2D {
     // this range; leave the GL buffer as a clean background here.
     if (view.upp < 1e-6) return;
 
+    if (gridSpecs === null) return;
     let specs = gridSpecs;
     if (!specs?.length) {
       const spacing = niceSpacing(view.upp, 90);

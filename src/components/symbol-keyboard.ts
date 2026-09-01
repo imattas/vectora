@@ -11,6 +11,7 @@ export const KEY_GROUPS: ReadonlyArray<readonly [string, readonly KeyboardKey[]]
     { label: '√', insert: 'sqrt(' }, { label: 'a/b', insert: '()/' },
     { label: 'abs', insert: 'abs(' },
   ]],
+  ['Functions', ['sin', 'cos', 'tan', 'sqrt', 'abs', 'ln', 'log', 'exp', 'floor', 'ceil'].map(label => ({ label, insert: `${label}(` }))],
   ['Common', ['π', 'τ', 'e', 'i', '∞'].map(label => ({ label, insert: label }))],
   ['Comparisons', ['≤', '≥', '<', '>', '='].map(label => ({ label, insert: label }))],
   ['Calculus', ['∫', 'Σ', 'Π'].map(label => ({ label, insert: label }))],

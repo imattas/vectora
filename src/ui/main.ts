@@ -79,6 +79,7 @@ import { initSidebar } from '../components/sidebar/sidebar.ts';
 import { initOnboarding } from '../components/onboarding.ts';
 import { makeSymbolKeyboard } from '../components/symbol-keyboard.ts';
 import { renderMathPreview } from '../components/math-display.ts';
+import { DEFAULT_GRAPH_SETTINGS, loadGraphSettings, saveGraphSettings, type GraphSettings } from '../components/graph-settings.ts';
 
 interface Equation {
   id: number;
@@ -204,6 +205,7 @@ let geometryHover: GeometryObject | null = null;
 let geometryHoverPoint: { x: number; y: number } | null = null;
 let curveHover: { eq: Equation; point: { x: number; y: number } } | null = null;
 const geometryReadouts = document.getElementById('geometry-readouts')!;
+let graphSettings: GraphSettings = loadGraphSettings();
 
 const view: View2D = { cx: 0, cy: 0, upp: 0.01 };
 const camera: Camera3D = { target: [0, 0, 0], radius: 14, theta: -Math.PI / 3, phi: Math.PI / 5.5 };
@@ -945,8 +947,8 @@ function render() {
         if (pts.length >= 4) extras.polylines.push({ pts, color: cssColor(theme.palette[eq.colorIndex]), width: 2 });
       }
     }
-    r2d.render(view, layers, time, constEnv, gridSpecs);
-    drawLabels2D(overlayCtx, view, dpr, extras, !gridFields.length && view.upp >= 1e-6);
+    r2d.render(view, layers, time, constEnv, graphSettings.grid ? gridSpecs : null);
+    drawLabels2D(overlayCtx, view, dpr, graphSettings.points ? extras : { ...extras, points: [] }, graphSettings.labels && !gridFields.length && view.upp >= 1e-6);
     drawGeometryOverlay(overlayCtx, view, dpr, geometryAnalysis, {
       hover: geometryHover,
       hoverPoint: geometryHoverPoint,
@@ -2824,7 +2826,7 @@ function updateHover(clientX: number, clientY: number) {
 
 /** Marker for the hovered point, drawn over the axis labels. */
 function drawHoverMarker(dpr: number) {
-  if (!hover || mode !== '2d') return;
+  if (!hover || mode !== '2d' || !graphSettings.points) return;
   const { toSx, toSy } = screenMap();
   const sx = toSx(hover.pt.x);
   const sy = toSy(hover.pt.y);
@@ -3102,6 +3104,25 @@ onThemeChange(() => {
 });
 syncThemeToggle();
 themeToggle?.addEventListener('click', toggleTheme);
+
+// Compact graph settings; state is local and never changes the shared URL.
+const settingsButton = document.getElementById('graph-settings');
+if (settingsButton) {
+  const settings = document.createElement('div'); settings.className = 'graph-settings-popover'; settings.hidden = true;
+  settings.setAttribute('role', 'dialog'); settings.setAttribute('aria-label', 'Graph settings');
+  const title = document.createElement('strong'); title.textContent = 'Graph settings'; settings.append(title);
+  const addSetting = (key: 'grid' | 'labels' | 'points', label: string) => {
+    const row = document.createElement('label'); row.className = 'graph-setting';
+    const input = document.createElement('input'); input.type = 'checkbox'; input.checked = graphSettings[key]; input.addEventListener('change', () => { graphSettings = { ...graphSettings, [key]: input.checked }; saveGraphSettings(graphSettings); requestRender(); });
+    row.append(input, document.createTextNode(label)); settings.append(row);
+  };
+  addSetting('grid', 'Grid and axes'); addSetting('labels', 'Axis labels'); addSetting('points', 'Points and markers');
+  const reset = makeButton('Reset', 'Reset graph settings', () => { graphSettings = { ...DEFAULT_GRAPH_SETTINGS }; saveGraphSettings(graphSettings); settings.querySelectorAll<HTMLInputElement>('input').forEach((input, i) => { input.checked = [graphSettings.grid, graphSettings.labels, graphSettings.points][i]; }); requestRender(); }, 'graph-settings-reset');
+  settings.append(reset); document.body.append(settings);
+  settingsButton.addEventListener('click', () => { settings.hidden = !settings.hidden; settingsButton.setAttribute('aria-expanded', String(!settings.hidden)); });
+  settingsButton.setAttribute('aria-expanded', 'false');
+  document.addEventListener('pointerdown', event => { if (!settings.hidden && event.target instanceof Node && !settings.contains(event.target) && event.target !== settingsButton) { settings.hidden = true; settingsButton.setAttribute('aria-expanded', 'false'); } });
+}
 
 // Drag the strip on the sidebar edge to resize it (the width
 // persists; double-click resets).
