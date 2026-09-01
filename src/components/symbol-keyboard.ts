@@ -1,5 +1,5 @@
 import { makeButton } from './button/button.ts';
-export interface KeyboardKey { label: string; insert: string; cursorOffset?: number; wrapSelection?: 'fraction' }
+export interface KeyboardKey { label: string; insert: string; cursorOffset?: number; wrapSelection?: 'fraction' | 'sqrt' | 'abs' | 'power' }
 export const KEY_GROUPS: ReadonlyArray<readonly [string, readonly KeyboardKey[]]> = [
   ['Numbers', '1234567890.'.split('').map(label => ({ label, insert: label }))],
   ['Operators', ['+', '−', '×', '÷', '/', '=', '(', ')', ',', '|'].map(label => ({
@@ -7,9 +7,9 @@ export const KEY_GROUPS: ReadonlyArray<readonly [string, readonly KeyboardKey[]]
     insert: ({ '−': '-', '×': '*', '÷': '/' } as Record<string, string>)[label] ?? label,
   }))],
   ['Powers & fractions', [
-    { label: 'xʸ', insert: '^', cursorOffset: 1 }, { label: 'x²', insert: '^2' },
-    { label: '√', insert: 'sqrt(', cursorOffset: 5 }, { label: 'a/b', insert: '(1)/(2)', cursorOffset: 1, wrapSelection: 'fraction' },
-    { label: 'abs', insert: 'abs(', cursorOffset: 4 },
+    { label: 'xʸ', insert: '^', cursorOffset: 1 }, { label: 'x²', insert: '^2', wrapSelection: 'power' },
+    { label: '√', insert: 'sqrt(', cursorOffset: 5, wrapSelection: 'sqrt' }, { label: 'a/b', insert: '(1)/(2)', cursorOffset: 1, wrapSelection: 'fraction' },
+    { label: 'abs', insert: 'abs(', cursorOffset: 4, wrapSelection: 'abs' },
   ]],
   ['Functions', ['sin', 'cos', 'tan', 'sqrt', 'abs', 'ln', 'log', 'exp', 'floor', 'ceil'].map(label => ({ label, insert: `${label}(`, cursorOffset: label.length + 1 }))],
   ['Common', [
@@ -27,7 +27,7 @@ export const KEY_GROUPS: ReadonlyArray<readonly [string, readonly KeyboardKey[]]
     { label: 'tangent', insert: 'tangent(circle((0, 0), 1), (1, 0))' },
   ]],
 ] as const;
-export interface SymbolKeyboardOptions { onBeforeOpen?: () => void; onInsert: (symbol: string, cursorOffset?: number, wrapSelection?: 'fraction') => void; }
+export interface SymbolKeyboardOptions { onBeforeOpen?: () => void; onInsert: (symbol: string, cursorOffset?: number, wrapSelection?: KeyboardKey['wrapSelection']) => void; }
 export const isKeyboardShortcut = (event: Pick<KeyboardEvent, 'key' | 'ctrlKey' | 'metaKey'>): boolean =>
   event.key === '/' && (event.ctrlKey || event.metaKey);
 export function makeSymbolKeyboard({ onBeforeOpen, onInsert }: SymbolKeyboardOptions): HTMLElement {

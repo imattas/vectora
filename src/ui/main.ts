@@ -3429,12 +3429,14 @@ if (addActions) {
     },
     onInsert: (symbol, cursorOffset, wrapSelection) => {
       let selectionLength = 0;
-      if (wrapSelection === 'fraction' && savedSymbolRange && !savedSymbolRange.collapsed) {
+      if (wrapSelection && savedSymbolRange && !savedSymbolRange.collapsed) {
         const selected = savedSymbolRange.toString();
         if (selected) {
           selectionLength = selected.length;
-          symbol = `(${selected})/(1)`;
-          cursorOffset = selectionLength + 4;
+          if (wrapSelection === 'fraction') { symbol = `(${selected})/(1)`; cursorOffset = selectionLength + 4; }
+          else if (wrapSelection === 'sqrt') { symbol = `sqrt(${selected})`; cursorOffset = selectionLength + 5; }
+          else if (wrapSelection === 'abs') { symbol = `abs(${selected})`; cursorOffset = selectionLength + 4; }
+          else { symbol = `(${selected})^2`; cursorOffset = symbol.length; }
         }
       }
       const selection = getSelection();
