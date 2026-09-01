@@ -646,34 +646,35 @@ export class Renderer2D {
     // this range; leave the GL buffer as a clean background here.
     if (view.upp < 1e-6) return;
 
-    if (gridSpecs === null) return;
-    let specs = gridSpecs;
-    if (!specs?.length) {
-      const spacing = niceSpacing(view.upp, 90);
-      specs = [
-        { glsl: 'x', gradGlsl: ['1.0', '0.0'], params: [], major: spacing.major, minor: spacing.minor },
-        { glsl: 'y', gradGlsl: ['0.0', '1.0'], params: [], major: spacing.major, minor: spacing.minor },
-      ];
-    }
-    try {
-      const grid = this.cache.get(QUAD_VERT, gridFrag(specs));
-      gl.useProgram(grid);
-      gl.uniform2f(gl.getUniformLocation(grid, 'uCenter'), view.cx, view.cy);
-      gl.uniform1f(gl.getUniformLocation(grid, 'uUpp'), view.upp);
-      gl.uniform2f(gl.getUniformLocation(grid, 'uRes'), w, h);
-      const tLoc = gl.getUniformLocation(grid, 't');
-      if (tLoc) gl.uniform1f(tLoc, time);
-      specs.forEach((s, k) => {
-        gl.uniform1f(gl.getUniformLocation(grid, `uMajor${k}`), s.major);
-        gl.uniform1f(gl.getUniformLocation(grid, `uMinor${k}`), s.minor);
-        for (const p of s.params) {
-          const loc = gl.getUniformLocation(grid, 'u_' + p);
-          if (loc) gl.uniform1f(loc, env[p] ?? 0);
-        }
-      });
-      this.quad.draw();
-    } catch (e) {
-      console.error(e);
+    if (gridSpecs !== null) {
+      let specs = gridSpecs;
+      if (!specs?.length) {
+        const spacing = niceSpacing(view.upp, 90);
+        specs = [
+          { glsl: 'x', gradGlsl: ['1.0', '0.0'], params: [], major: spacing.major, minor: spacing.minor },
+          { glsl: 'y', gradGlsl: ['0.0', '1.0'], params: [], major: spacing.major, minor: spacing.minor },
+        ];
+      }
+      try {
+        const grid = this.cache.get(QUAD_VERT, gridFrag(specs));
+        gl.useProgram(grid);
+        gl.uniform2f(gl.getUniformLocation(grid, 'uCenter'), view.cx, view.cy);
+        gl.uniform1f(gl.getUniformLocation(grid, 'uUpp'), view.upp);
+        gl.uniform2f(gl.getUniformLocation(grid, 'uRes'), w, h);
+        const tLoc = gl.getUniformLocation(grid, 't');
+        if (tLoc) gl.uniform1f(tLoc, time);
+        specs.forEach((s, k) => {
+          gl.uniform1f(gl.getUniformLocation(grid, `uMajor${k}`), s.major);
+          gl.uniform1f(gl.getUniformLocation(grid, `uMinor${k}`), s.minor);
+          for (const p of s.params) {
+            const loc = gl.getUniformLocation(grid, 'u_' + p);
+            if (loc) gl.uniform1f(loc, env[p] ?? 0);
+          }
+        });
+        this.quad.draw();
+      } catch (e) {
+        console.error(e);
+      }
     }
 
     const drawProgram = (

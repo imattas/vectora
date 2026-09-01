@@ -44,6 +44,15 @@ describe('analyzeGeometry', () => {
     expect(result.unavailable).toEqual([]);
   });
 
+  it('formats explicit and automatic angles in radians when requested', () => {
+    const result = analyzeGeometry([
+      { row: 0, text: 'angle((1, 0), (0, 0), (0, 1))' },
+      { row: 1, text: 'y = x' }, { row: 2, text: 'y = 0' },
+    ], new Map(), new Map(), { angleUnit: 'radians' });
+    expect(result.readouts.get(0)).toBe(`${Math.PI / 2} rad`);
+    expect(result.readouts.get(-1)).toBe(`${Math.PI / 4} rad`);
+  });
+
   it('normalizes a flattened literal center for circles', () => {
     const result = analyzeGeometry([{ row: 0, text: 'circle((0, 0), 2)' }]);
     expect(result.unavailable).toEqual([]);

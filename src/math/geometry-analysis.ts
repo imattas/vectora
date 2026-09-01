@@ -5,6 +5,7 @@ import { distance as pointDistance, measureAngle, midpoint, projection } from '.
 
 export interface GeometryRow { row: number; text: string }
 export interface GeometryUnavailable { row: number; reason: string }
+export interface GeometryAnalysisOptions { angleUnit?: 'degrees' | 'radians' }
 export interface GeometryAnalysis {
   objects: GeometryObject[];
   derived: GeometryObject[];
@@ -35,6 +36,7 @@ export function analyzeGeometry(
   rows: readonly GeometryRow[],
   points: ReadonlyMap<string, Point2> = new Map(),
   env: ReadonlyMap<string, number> = new Map(),
+  options: GeometryAnalysisOptions = {},
 ): GeometryAnalysis {
   const objects: GeometryObject[] = [];
   const derived: GeometryObject[] = [];
@@ -42,6 +44,10 @@ export function analyzeGeometry(
   const dependencies = new Map<number, number[]>();
   const unavailable: GeometryUnavailable[] = [];
   const readouts = new Map<number, string>();
+  const angleUnit = options.angleUnit ?? 'degrees';
+  const formatAngle = (degrees: number, radians: number) => angleUnit === 'radians'
+    ? `${radians} rad`
+    : `${degrees}°`;
   const values = new Map<string, Point2>(points);
   const pointRows = new Map<string, number>();
   const dependencyRows = (e: Expr): number[] => {
@@ -204,7 +210,7 @@ export function analyzeGeometry(
       }
       push(row, object, deps);
       if (object.kind === 'angle') {
-        const m = measureAngle(object); if (m.ok) readouts.set(row, `${m.value.degrees}° (${m.value.radians} rad)`);
+        const m = measureAngle(object); if (m.ok) readouts.set(row, formatAngle(m.value.degrees, m.value.radians));
       } else if (object.kind === 'point') readouts.set(row, `(${object.point.x}, ${object.point.y})`);
       else if (object.kind === 'segment' || object.kind === 'ray' || object.kind === 'line') {
         const dx = object.b.x - object.a.x, dy = object.b.y - object.a.y;
@@ -283,7 +289,7 @@ export function analyzeGeometry(
     const measurement = measureAngle(automatic);
     if (!measurement.ok) continue;
     derived.push(automatic);
-    readouts.set(-1, `${measurement.value.degrees}°`);
+    readouts.set(-1, formatAngle(measurement.value.degrees, measurement.value.radians));
   }
   return { objects, derived, byRow, dependencies, unavailable, readouts };
 }
