@@ -318,6 +318,7 @@ html, body {
 .math-denominator { padding: 1px 3px 0; }
 .math-preview sup { font-size: .72em; line-height: 0; vertical-align: .55em; }
 .math-root, .math-abs { display: inline-flex; align-items: center; vertical-align: middle; }
+.math-root-index { margin-right: -1px; font-size: .55em; line-height: 1; }
 .math-radical { font-size: 1.35em; line-height: .8; }
 .math-root .math-radicand { border-top: 1px solid currentColor; padding: 2px 2px 0 3px; }
 .math-abs > .math-radicand { margin: 0 2px; padding: 0 2px; border-left: 1px solid currentColor; border-right: 1px solid currentColor; }
