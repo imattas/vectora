@@ -544,9 +544,10 @@ await scenario('graph canvas supports keyboard navigation', async () => {
     tabIndex: document.querySelector('#gl')?.getAttribute('tabindex'),
     role: document.querySelector('#gl')?.getAttribute('role'),
     shortcuts: document.querySelector('#gl')?.getAttribute('aria-keyshortcuts'),
+    overlayHidden: document.querySelector('#overlay')?.getAttribute('aria-hidden'),
     focused: document.activeElement?.id === 'gl',
   }));
-  check('graph canvas supports keyboard navigation', state.tabIndex === '0' && state.role === 'img' && state.shortcuts?.includes('Home') === true && state.focused && afterZoom < before, JSON.stringify({ before, afterZoom, ...state }));
+  check('graph canvas supports keyboard navigation', state.tabIndex === '0' && state.role === 'img' && state.shortcuts?.includes('Home') === true && state.overlayHidden === 'true' && state.focused && afterZoom < before, JSON.stringify({ before, afterZoom, ...state }));
 });
 
 await scenario('browser runtime stays error-free', async () => {
