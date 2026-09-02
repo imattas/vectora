@@ -1,4 +1,5 @@
 export type SheetState = 'open' | 'collapsed';
+import { makeIcon } from './icon.ts';
 
 export function swipeState(deltaY: number, threshold = 30): SheetState | null {
   const limit = Number.isFinite(threshold) && threshold >= 0 ? threshold : 30;
@@ -26,7 +27,7 @@ export function initMobileSheet(
     state = next;
     panel.classList.toggle('mobile-collapsed', next === 'collapsed');
     toggle.setAttribute('aria-expanded', String(next === 'open'));
-    toggle.textContent = next === 'collapsed' ? '☰ Expressions' : '× Close panel';
+    toggle.replaceChildren(makeIcon(next === 'collapsed' ? 'menu' : 'close'), document.createTextNode(next === 'collapsed' ? ' Expressions' : ' Close panel'));
   };
   const onToggle = () => setState(state === 'open' ? 'collapsed' : 'open');
   const onDown = (event: PointerEvent) => {

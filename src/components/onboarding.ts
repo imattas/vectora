@@ -1,4 +1,5 @@
 const STORAGE_KEY = 'vectora-onboarding-v1';
+import { makeIcon } from './icon.ts';
 
 interface OnboardingOptions { initiallyOpen: boolean }
 
@@ -25,7 +26,7 @@ export function initOnboarding({ initiallyOpen }: OnboardingOptions): void {
   dialog.setAttribute('aria-labelledby', 'onboarding-title');
   dialog.setAttribute('aria-describedby', 'onboarding-body');
   const shell = document.createElement('div'); shell.className = 'onboarding-shell';
-  const close = document.createElement('button'); close.className = 'onboarding-close'; close.type = 'button'; close.textContent = '×'; close.setAttribute('aria-label', 'Close onboarding');
+  const close = document.createElement('button'); close.className = 'onboarding-close'; close.type = 'button'; close.append(makeIcon('close')); close.setAttribute('aria-label', 'Close onboarding');
   const content = document.createElement('div');
   const footer = document.createElement('div'); footer.className = 'onboarding-footer';
   shell.append(close, content, footer); dialog.append(shell); document.body.append(dialog);

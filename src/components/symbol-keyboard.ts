@@ -1,4 +1,5 @@
 import { makeButton } from './button/button.ts';
+import { makeIcon } from './icon.ts';
 export interface KeyboardKey { label: string; insert: string; cursorOffset?: number; wrapSelection?: 'fraction' | 'sqrt' | 'abs' | 'power' | 'function'; wrapper?: string }
 export const KEY_GROUPS: ReadonlyArray<readonly [string, readonly KeyboardKey[]]> = [
   ['Numbers', '1234567890.'.split('').map(label => ({ label, insert: label }))],
@@ -36,7 +37,8 @@ export const isKeyboardShortcut = (event: Pick<KeyboardEvent, 'key' | 'ctrlKey' 
   event.key === '/' && (event.ctrlKey || event.metaKey);
 export function makeSymbolKeyboard({ onBeforeOpen, onInsert }: SymbolKeyboardOptions): HTMLElement {
   const wrap = document.createElement('div'); wrap.className = 'symbol-keyboard-wrap';
-  const trigger = makeButton('⌨', 'Open symbol keyboard', () => { onBeforeOpen?.(); popover.hidden = !popover.hidden; trigger.setAttribute('aria-expanded', String(!popover.hidden)); if (!popover.hidden) popover.querySelector<HTMLButtonElement>('.symbol-key')?.focus(); }, 'sidebar-action symbol-keyboard-trigger');
+  const trigger = makeButton('', 'Open symbol keyboard', () => { onBeforeOpen?.(); popover.hidden = !popover.hidden; trigger.setAttribute('aria-expanded', String(!popover.hidden)); if (!popover.hidden) popover.querySelector<HTMLButtonElement>('.symbol-key')?.focus(); }, 'sidebar-action symbol-keyboard-trigger');
+  trigger.append(makeIcon('keyboard'));
   trigger.setAttribute('aria-haspopup', 'dialog'); trigger.setAttribute('aria-expanded', 'false'); trigger.setAttribute('aria-keyshortcuts', 'Control+/ Meta+/');
   const popover = document.createElement('div'); popover.className = 'symbol-keyboard-popover'; popover.id = 'symbol-keyboard-popover'; popover.hidden = true; popover.setAttribute('role', 'dialog'); popover.setAttribute('aria-label', 'Calculator keyboard'); trigger.setAttribute('aria-controls', popover.id);
   const title = document.createElement('div'); title.className = 'symbol-keyboard-title'; title.textContent = 'Calculator keyboard'; popover.append(title);
