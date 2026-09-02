@@ -5,7 +5,7 @@ export function makeColorPicker(
   onClose?: () => void,
 ): HTMLElement {
   const box = document.createElement('div');
-  box.className = 'color-picker'; box.hidden = true; box.contentEditable = 'false'; box.setAttribute('role', 'group'); box.setAttribute('aria-label', 'Choose plot color');
+  box.className = 'color-picker'; box.hidden = true; box.contentEditable = 'false'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-label', 'Choose plot color');
   const closePicker = () => { box.hidden = true; onClose?.(); };
   const wheel = document.createElement('div'); wheel.className = 'color-wheel'; wheel.title = 'Choose a hue';
   wheel.setAttribute('role', 'slider'); wheel.setAttribute('tabindex', '0'); wheel.setAttribute('aria-label', 'Color wheel');
