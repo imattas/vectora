@@ -9,7 +9,7 @@
     "build": "vite build",
     "web:build": "vite build",
     "icons": "node scripts/icons.ts",
-    "typecheck": "tsc --noEmit && tsc -p src/ui --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p src/ui --noEmit && tsc -p scripts/tsconfig.json",
     "test:editor": "node scripts/editor-test.ts",
     "bench": "vitest bench --run",
     "perf": "node scripts/perf.ts",

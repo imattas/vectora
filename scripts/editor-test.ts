@@ -364,8 +364,8 @@ await scenario('row action menus expose state and restore focus', async () => {
     hidden: document.querySelector<HTMLElement>('.row-options')?.hidden,
     focused: document.activeElement?.classList.contains('row-options-trigger'),
   }));
-  check('row action menu exposes menu state', opened.expanded === 'true' && opened.controls && opened.menu === 'menu' && opened.items > 0 && opened.focusedItem === 'menuitem', JSON.stringify(opened));
-  check('row action menu Escape restores focus', closed.expanded === 'false' && closed.hidden === true && closed.focused, JSON.stringify(closed));
+  check('row action menu exposes menu state', opened.expanded === 'true' && !!opened.controls && opened.menu === 'menu' && opened.items > 0 && opened.focusedItem === 'menuitem', JSON.stringify(opened));
+  check('row action menu Escape restores focus', closed.expanded === 'false' && closed.hidden === true && closed.focused === true, JSON.stringify(closed));
 });
 
 await scenario('collapsed rows still copy and share', async () => {
@@ -451,7 +451,7 @@ await scenario('mobile sheet closes with Escape and restores focus', async () =>
     focused: document.activeElement?.id === 'mobile-panel-toggle',
     expanded: document.querySelector('#mobile-panel-toggle')?.getAttribute('aria-expanded'),
   }));
-  check('mobile Escape collapses the sheet and returns focus', state.collapsed && state.focused && state.expanded === 'false', JSON.stringify(state));
+  check('mobile Escape collapses the sheet and returns focus', state.collapsed === true && state.focused === true && state.expanded === 'false', JSON.stringify(state));
   await page.setViewportSize({ width: 1000, height: 700 });
 });
 
