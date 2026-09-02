@@ -182,7 +182,8 @@ html, body {
 .header-link { color: var(--muted); text-decoration: none; font-size: 12px; padding: 4px 5px; }
 .header-link:hover { color: var(--muted-hover); }
 #onboarding-help { width: 24px; height: 24px; border: 1px solid var(--panel-border); border-radius: 50%; background: transparent; color: var(--muted); cursor: pointer; font: 600 12px ui-sans-serif, system-ui; }
-#onboarding-help:hover, #onboarding-help:focus-visible { color: var(--text); border-color: var(--accent); outline: none; }
+#onboarding-help:hover { color: var(--text); border-color: var(--accent); }
+#onboarding-help:focus-visible { color: var(--text); border-color: var(--accent); outline: 2px solid var(--focus-ring); outline-offset: 1px; }
 
 /* The resize strip (panel-resize.ts) sits on the sidebar's outer edge. */
 #panel-resize {
