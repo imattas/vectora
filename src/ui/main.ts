@@ -305,6 +305,7 @@ function resize() {
 }
 
 let renderQueued = false;
+let renderFallback: ReturnType<typeof setTimeout> | null = null;
 function requestRender() {
   if (renderQueued) return;
   renderQueued = true;
@@ -312,13 +313,17 @@ function requestRender() {
   const run = () => {
     if (ran) return;
     ran = true;
+    if (renderFallback !== null) {
+      clearTimeout(renderFallback);
+      renderFallback = null;
+    }
     renderQueued = false;
     render();
   };
   requestAnimationFrame(run);
   // rAF stalls entirely in hidden/occluded tabs (embedded previews,
   // screenshot tooling); a timer backstop keeps frames coming there.
-  setTimeout(run, 200);
+  renderFallback = setTimeout(run, 200);
 }
 
 const startTime = performance.now();
