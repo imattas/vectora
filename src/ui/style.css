@@ -178,7 +178,8 @@ html, body {
 .graph-setting { display: flex; align-items: center; gap: 8px; cursor: pointer; }
 .graph-setting input { accent-color: var(--accent); }
 .graph-settings-reset { justify-self: start; padding: 3px 7px; border: 1px solid var(--panel-border); border-radius: 4px; background: transparent; color: var(--muted); cursor: pointer; }
-.graph-settings-reset:hover { color: var(--text); border-color: var(--accent); }
+.graph-settings-reset:hover, .graph-settings-reset:focus-visible { color: var(--text); border-color: var(--accent); }
+.graph-setting input:focus-visible, .graph-settings-popover select:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .header-link { color: var(--muted); text-decoration: none; font-size: 12px; padding: 4px 5px; }
 .header-link:hover { color: var(--muted-hover); }
 #onboarding-help { width: 24px; height: 24px; border: 1px solid var(--panel-border); border-radius: 50%; background: transparent; color: var(--muted); cursor: pointer; font: 600 12px ui-sans-serif, system-ui; }

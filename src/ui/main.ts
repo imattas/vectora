@@ -3355,7 +3355,7 @@ if (settingsButton) {
   settings.setAttribute('role', 'dialog'); settings.setAttribute('aria-label', 'Graph settings');
   settingsButton.setAttribute('aria-haspopup', 'dialog');
   settingsButton.setAttribute('aria-controls', settings.id);
-  const title = document.createElement('strong'); title.textContent = 'Graph settings'; settings.append(title);
+  const title = document.createElement('strong'); title.id = 'graph-settings-title'; title.textContent = 'Graph settings'; settings.setAttribute('aria-labelledby', title.id); settings.append(title);
   const addSetting = (key: 'grid' | 'axes' | 'labels' | 'points' | 'snap', label: string) => {
     const row = document.createElement('label'); row.className = 'graph-setting';
     const input = document.createElement('input'); input.type = 'checkbox'; input.checked = graphSettings[key]; input.setAttribute('aria-label', label); input.addEventListener('change', () => { graphSettings = { ...graphSettings, [key]: input.checked }; saveGraphSettings(graphSettings); requestRender(); });

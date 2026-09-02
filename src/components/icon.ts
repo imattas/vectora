@@ -12,8 +12,12 @@ const PATHS: Record<IconName, string> = {
 export function makeIcon(name: IconName, label?: string): SVGSVGElement {
   const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   icon.setAttribute('viewBox', '0 0 24 24');
-  icon.setAttribute('aria-hidden', 'true');
-  if (label) icon.setAttribute('aria-label', label);
+  if (label) {
+    icon.setAttribute('role', 'img');
+    icon.setAttribute('aria-label', label);
+  } else {
+    icon.setAttribute('aria-hidden', 'true');
+  }
   icon.innerHTML = PATHS[name];
   return icon;
 }
