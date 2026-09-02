@@ -632,4 +632,4 @@ html, body {
 .onboarding-text:hover { color: var(--text); }
 .onboarding-footer button:disabled { cursor: default; opacity: .35; }
 @media (max-width: 640px) { .onboarding-shell { padding: 30px 24px 24px; } .onboarding-dialog h1 { font-size: 24px; } }
-@media (prefers-reduced-motion: reduce) { .onboarding-dialog::backdrop { backdrop-filter: none; } }
+@media (prefers-reduced-motion: reduce) { .onboarding-dialog::backdrop { backdrop-filter: none; } #panel { transition: none; } }
