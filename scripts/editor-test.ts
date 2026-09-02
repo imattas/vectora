@@ -529,6 +529,25 @@ await scenario('blurred equations use visual math glyphs', async () => {
   check('blurred equations use visual math glyphs', state.focused === false && state.sourceDisplay === 'none' && state.preview?.includes('√') === true && state.preview?.includes('×') === true && state.root, JSON.stringify(state));
 });
 
+await scenario('typed math aliases open editable templates', async () => {
+  await load(page, ['x=0']);
+  await caretTo(page, 0, 0);
+  await page.keyboard.type('sqrt');
+  const state = await page.evaluate(() => ({
+    text: document.querySelector<HTMLElement>('.math-source')?.textContent,
+    caret: (() => {
+      const selection = getSelection();
+      if (!selection?.focusNode) return -1;
+      const row = document.querySelector<HTMLElement>('.eq-line')!;
+      const range = document.createRange();
+      range.selectNodeContents(row);
+      range.setEnd(selection.focusNode, selection.focusOffset);
+      return range.toString().length;
+    })(),
+  }));
+  check('typed sqrt opens a canonical template with the caret inside', state.text?.startsWith('sqrt()') === true && state.caret === 5, JSON.stringify(state));
+});
+
 await scenario('add menu supports keyboard navigation and exposes its relationship', async () => {
   await page.goto(ORIGIN + '/#y%3Dx');
   const trigger = page.locator('.add-menu-trigger');

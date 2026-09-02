@@ -82,6 +82,7 @@ import { initOnboarding } from '../components/onboarding.ts';
 import { makeSymbolKeyboard } from '../components/symbol-keyboard.ts';
 import { makeIcon } from '../components/icon.ts';
 import { renderMathPreview } from '../components/math-display.ts';
+import { templateInsertion, type MathTemplate } from '../components/math-input.ts';
 import { DEFAULT_GRAPH_SETTINGS, loadGraphSettings, saveGraphSettings, type GraphSettings } from '../components/graph-settings.ts';
 import { getFunctionCompletions } from '../components/function-autocomplete.ts';
 import { initMobileSheet } from '../components/mobile-sheet.ts';
@@ -2238,6 +2239,29 @@ function selectionAsText(): string | null {
   return parts.length ? parts.join('\n') : null;
 }
 
+function insertTemplate(template: MathTemplate): void {
+  const result = templateInsertion(template, selectionAsText() ?? '');
+  insertStatements(result.text);
+  const after = caretPos();
+  if (after) setCaret(after.line, after.offset - result.text.length + result.cursorOffset);
+}
+
+function openTypedTemplate(): boolean {
+  const pos = caretPos();
+  if (!pos || !getSelection()?.isCollapsed) return false;
+  const eq = equations[pos.line];
+  const typed = eq?.text.slice(0, pos.offset).match(/(?:^|[^A-Za-z0-9_])(sqrt|frac|cbrt)$/)?.[1];
+  if (!eq || !typed) return false;
+  const template = typed === 'frac' ? 'fraction' : typed as MathTemplate;
+  const result = templateInsertion(template);
+  const start = pos.offset - typed.length;
+  eq.text = eq.text.slice(0, start) + result.text + eq.text.slice(pos.offset);
+  recompileAll();
+  renderAll();
+  setCaret(pos.line, start + result.cursorOffset);
+  return true;
+}
+
 // --- editor events ---
 
 // Sliders and error messages sit inside the contentEditable as
@@ -2270,6 +2294,7 @@ listEl.addEventListener('input', e => {
   if (e.target !== listEl) return; // slider/bound inputs bubble their 'input' here
   pushUndo(`edit:${pendingCaret?.line ?? -1}`, pendingCaret ?? caretPos());
   syncFromDOM();
+  openTypedTemplate();
   // Typing ';' splits the line into rows, matching the old per-input behavior.
   if (equations.some(eq => eq.text.includes(';'))) {
     const caret = caretPos();
@@ -2351,6 +2376,11 @@ listEl.addEventListener('keydown', e => {
   if (mod && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'y') {
     e.preventDefault();
     doRedo();
+    return;
+  }
+  if (!mod && !e.altKey && e.key === '/' && selectionAsText()) {
+    e.preventDefault();
+    insertTemplate('fraction');
     return;
   }
   if (e.key !== 'Enter' || e.isComposing) return;
