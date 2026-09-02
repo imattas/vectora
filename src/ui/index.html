@@ -78,6 +78,10 @@
     <div id="panel-resize" role="separator" aria-orientation="vertical" tabindex="0"
          aria-label="Resize the equations panel"
          title="Drag to resize the panel; double-click to reset"></div>
+    <div class="panel-tabs" role="tablist" aria-label="Sidebar views">
+      <button id="main-tab" class="panel-tab active" type="button" role="tab" aria-selected="true" aria-controls="main-panel">Main</button>
+      <button id="settings-tab" class="panel-tab" type="button" role="tab" aria-selected="false" aria-controls="settings-panel">Settings</button>
+    </div>
     <button id="state-reset" type="button" aria-label="Restart the simulation" title="Restart the simulation" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.3-5.7L4 8.6M4 4v4.6h4.6"/></svg></button>
     <div id="sidebar-actions" role="group" aria-label="Add items"></div>
     <div id="equations" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Equations, one per line" spellcheck="false" autocapitalize="off" autocorrect="off" enterkeyhint="enter"></div>

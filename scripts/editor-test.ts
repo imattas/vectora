@@ -564,45 +564,36 @@ await scenario('add menu supports keyboard navigation and exposes its relationsh
   await page.keyboard.press('Escape');
 });
 
-await scenario('header popovers do not overlap and close with Escape', async () => {
+await scenario('sidebar tabs switch between main and graph settings', async () => {
   await page.goto(ORIGIN + '/#y%3Dx');
-  await page.locator('#graph-settings').click();
+  await page.locator('#settings-tab').click();
   const settingsFocus = await page.evaluate(() => document.activeElement?.getAttribute('aria-label'));
-  const exclusive = await page.evaluate(() => ({
-    settings: document.querySelector<HTMLElement>('.graph-settings-popover')?.hidden,
-    settingsPopup: document.querySelector('#graph-settings')?.getAttribute('aria-haspopup'),
+  const settingsOpen = await page.evaluate(() => ({
+    panel: document.querySelector<HTMLElement>('#panel')?.dataset.tab,
+    selected: document.querySelector('#settings-tab')?.getAttribute('aria-selected'),
     close: document.querySelector<HTMLButtonElement>('.graph-settings-close')?.getAttribute('aria-label'),
   }));
-  await page.locator('#graph-settings svg').click();
-  const toggledClosed = await page.evaluate(() => document.querySelector<HTMLElement>('.graph-settings-popover')?.hidden);
-  await page.locator('#graph-settings svg').click();
-  const toggledOpen = await page.evaluate(() => document.querySelector<HTMLElement>('.graph-settings-popover')?.hidden === false);
-  check('graph settings toggles from its SVG target', toggledClosed === true && toggledOpen === true, JSON.stringify({ toggledClosed, toggledOpen }));
-  await page.keyboard.press('Escape');
-  const closed = await page.evaluate(() => ({
-    settings: document.querySelector<HTMLElement>('.graph-settings-popover')?.hidden,
-    focused: document.activeElement?.id,
+  await page.locator('#main-tab').click();
+  const mainOpen = await page.evaluate(() => ({
+    panel: document.querySelector<HTMLElement>('#panel')?.dataset.tab,
+    selected: document.querySelector('#main-tab')?.getAttribute('aria-selected'),
+    settingsHidden: document.querySelector<HTMLElement>('#settings-panel')?.hidden,
   }));
-  check('graph settings opens as a dialog', exclusive.settings === false && exclusive.settingsPopup === 'dialog' && exclusive.close === 'Close graph settings' && settingsFocus === 'Grid', JSON.stringify({ ...exclusive, settingsFocus }));
-  check('graph settings closes with Escape', closed.settings === true && closed.focused === 'graph-settings', JSON.stringify(closed));
+  await page.keyboard.press('Escape');
+  check('settings tab exposes styled settings controls', settingsOpen.panel === 'settings' && settingsOpen.selected === 'true' && settingsOpen.close === 'Close graph settings' && settingsFocus === 'Close graph settings', JSON.stringify({ ...settingsOpen, settingsFocus }));
+  check('main tab restores the expression view', mainOpen.panel === 'main' && mainOpen.selected === 'true' && mainOpen.settingsHidden === true, JSON.stringify(mainOpen));
   await page.locator('#graph-settings').click();
   await page.locator('.graph-settings-close').click();
   const clickedClose = await page.evaluate(() => ({
-    hidden: document.querySelector<HTMLElement>('.graph-settings-popover')?.hidden,
+    tab: document.querySelector<HTMLElement>('#panel')?.dataset.tab,
     focused: document.activeElement?.id,
   }));
-  check('graph settings close button works', clickedClose.hidden === true && clickedClose.focused === 'graph-settings', JSON.stringify(clickedClose));
-  await page.locator('#graph-settings').click();
+  check('graph settings close button returns to main tab', clickedClose.tab === 'main', JSON.stringify(clickedClose));
+  await page.locator('#settings-tab').click();
   const heading = page.locator('.graph-settings-heading');
-  const beforeDrag = await heading.boundingBox();
-  if (!beforeDrag) throw new Error('settings heading has no bounds');
-  await page.mouse.move(beforeDrag.x + 40, beforeDrag.y + 12);
-  await page.mouse.down();
-  await page.mouse.move(beforeDrag.x + 120, beforeDrag.y + 52);
-  await page.mouse.up();
-  const afterDrag = await heading.boundingBox();
-  const selectStyle = await page.locator('.graph-settings-popover select').evaluate(el => getComputedStyle(el).appearance);
-  check('graph settings can be dragged and uses styled controls', !!afterDrag && afterDrag.x > beforeDrag.x + 50 && afterDrag.y > beforeDrag.y + 20 && selectStyle === 'none', JSON.stringify({ beforeDrag, afterDrag, selectStyle }));
+  const panelBounds = await page.locator('#settings-panel').boundingBox();
+  const selectStyle = await page.locator('#settings-panel select').evaluate(el => getComputedStyle(el).appearance);
+  check('settings tab uses the sidebar layout and styled controls', !!panelBounds && selectStyle === 'none', JSON.stringify({ panelBounds, selectStyle }));
   await page.locator('.graph-settings-close').click();
   await load(page, ['y = x']);
   await page.locator('.symbol-keyboard-trigger').click();
