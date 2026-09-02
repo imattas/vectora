@@ -345,7 +345,7 @@ await scenario('parametric 3D scenes auto-frame with SVG controls', async () => 
   const state = await page.evaluate(() => ({
     radius: (globalThis as { __eq?: { camera?: { radius: number } } }).__eq?.camera?.radius ?? Infinity,
     errors: [...document.querySelectorAll('.eq-error')].map(el => el.textContent),
-    svgControls: document.querySelectorAll('#zoom-in svg, #zoom-out svg, #home-view svg, #graph-settings svg, #onboarding-help svg, #theme-toggle svg, #sidebar-actions .add-menu-trigger svg, #keyboard-dock .symbol-keyboard-trigger svg').length,
+    svgControls: document.querySelectorAll('#zoom-in svg, #zoom-out svg, #home-view svg, #onboarding-help svg, #sidebar-actions .add-menu-trigger svg, #keyboard-dock .symbol-keyboard-trigger svg').length,
     controlsRole: document.querySelector('#graph-controls')?.getAttribute('role'),
   }));
   await page.goto(ORIGIN + '/#' + encodeURIComponent('tube((sin(2pi u) + 2sin(4pi u), cos(2pi u) - 2cos(4pi u), -sin(6pi u)))'));
@@ -364,7 +364,7 @@ await scenario('parametric 3D scenes auto-frame with SVG controls', async () => 
   await parametricExamples.locator('.ex-item').filter({ hasText: 'parametric surface' }).click();
   await page.waitForTimeout(300);
   const exampleErrors = await page.locator('.eq-error').allTextContents();
-  check('parametric 3D scenes auto-frame with SVG controls', state.radius < 6 && knot.radius > 0 && resetRadius < 6 && state.errors.length === 0 && knot.errors.length === 0 && exampleErrors.length === 0 && state.svgControls === 8 && state.controlsRole === 'group', JSON.stringify({ ...state, knot, resetRadius, exampleErrors }));
+  check('parametric 3D scenes auto-frame with SVG controls', state.radius < 6 && knot.radius > 0 && resetRadius < 6 && state.errors.length === 0 && knot.errors.length === 0 && exampleErrors.length === 0 && state.svgControls === 6 && state.controlsRole === 'group', JSON.stringify({ ...state, knot, resetRadius, exampleErrors }));
 });
 
 await scenario('row action menus expose state and restore focus', async () => {
@@ -515,7 +515,7 @@ await scenario('the editor uses the technical type scale', async () => {
 await scenario('blurred equations use visual math glyphs', async () => {
   await load(page, ['sqrt(x) * x']);
   await page.locator('.eq-line').first().click();
-  await page.locator('#graph-settings').click();
+  await page.locator('#settings-tab').click();
   const state = await page.evaluate(() => {
     const row = document.querySelector<HTMLElement>('.eq-line')!;
     const source = row.querySelector<HTMLElement>('.math-source')!;
@@ -567,12 +567,12 @@ await scenario('add menu supports keyboard navigation and exposes its relationsh
 await scenario('sidebar tabs switch between main and graph settings', async () => {
   await page.goto(ORIGIN + '/#y%3Dx');
   await page.locator('#settings-tab').click();
-  const settingsFocus = await page.evaluate(() => document.activeElement?.getAttribute('aria-label'));
+  const settingsFocus = await page.evaluate(() => document.activeElement?.textContent?.trim());
   const settingsOpen = await page.evaluate(() => ({
     panel: document.querySelector<HTMLElement>('#panel')?.dataset.tab,
     selected: document.querySelector('#settings-tab')?.getAttribute('aria-selected'),
-    close: document.querySelector<HTMLButtonElement>('.graph-settings-close')?.getAttribute('aria-label'),
     themes: document.querySelectorAll('#settings-panel select[aria-label="Theme"] option').length,
+    categories: [...document.querySelectorAll<HTMLDetailsElement>('.settings-category')].map(node => node.open),
   }));
   await page.locator('#main-tab').click();
   const mainOpen = await page.evaluate(() => ({
@@ -582,24 +582,16 @@ await scenario('sidebar tabs switch between main and graph settings', async () =
     settingsDisplay: getComputedStyle(document.querySelector<HTMLElement>('#settings-panel')!).display,
   }));
   await page.keyboard.press('Escape');
-  check('settings tab exposes styled settings controls and themes', settingsOpen.panel === 'settings' && settingsOpen.selected === 'true' && settingsOpen.close === 'Close graph settings' && settingsOpen.themes === 3 && settingsFocus === 'Theme', JSON.stringify({ ...settingsOpen, settingsFocus }));
+  check('settings tab exposes styled settings controls and themes', settingsOpen.panel === 'settings' && settingsOpen.selected === 'true' && settingsOpen.themes === 3 && settingsOpen.categories.every(open => !open) && settingsFocus === 'Appearance', JSON.stringify({ ...settingsOpen, settingsFocus }));
   check('main tab hides every settings control', mainOpen.panel === 'main' && mainOpen.selected === 'true' && mainOpen.settingsHidden === true && mainOpen.settingsDisplay === 'none', JSON.stringify(mainOpen));
-  await page.locator('#graph-settings').click();
-  await page.locator('.graph-settings-close').click();
-  const clickedClose = await page.evaluate(() => ({
-    tab: document.querySelector<HTMLElement>('#panel')?.dataset.tab,
-    focused: document.activeElement?.id,
-  }));
-  check('graph settings close button returns to main tab', clickedClose.tab === 'main', JSON.stringify(clickedClose));
   await page.locator('#settings-tab').click();
-  const heading = page.locator('.graph-settings-heading');
   const panelBounds = await page.locator('#settings-panel').boundingBox();
   const selectStyle = await page.locator('#settings-panel select[aria-label="Angle units"]').evaluate(el => getComputedStyle(el).appearance);
   check('settings tab uses the sidebar layout and styled controls', !!panelBounds && selectStyle === 'none', JSON.stringify({ panelBounds, selectStyle }));
   await page.locator('.settings-category').nth(2).locator('summary').click();
   const categories = await page.locator('.settings-category').evaluateAll(nodes => nodes.map(node => (node as HTMLDetailsElement).open));
   check('settings categories expand and retract independently', categories.length === 3 && categories[2] === true, JSON.stringify(categories));
-  await page.locator('.graph-settings-close').click();
+  await page.locator('#main-tab').click();
   await load(page, ['y = x']);
   await page.locator('.symbol-keyboard-trigger').click();
   await page.locator('.symbol-keyboard-close').click();

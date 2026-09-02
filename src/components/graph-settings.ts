@@ -5,9 +5,10 @@ export interface GraphSettings {
   points: boolean;
   snap: boolean;
   angleUnit: 'degrees' | 'radians';
+  animationSpeed: number;
 }
 
-export const DEFAULT_GRAPH_SETTINGS: GraphSettings = { grid: true, axes: true, labels: true, points: true, snap: false, angleUnit: 'degrees' };
+export const DEFAULT_GRAPH_SETTINGS: GraphSettings = { grid: true, axes: true, labels: true, points: true, snap: false, angleUnit: 'degrees', animationSpeed: 1 };
 const STORAGE_KEY = 'vectora-graph-settings-v1';
 
 export function loadGraphSettings(): GraphSettings {
@@ -20,6 +21,7 @@ export function loadGraphSettings(): GraphSettings {
       grid: bool('grid'), axes: bool('axes'), labels: bool('labels'),
       points: bool('points'), snap: bool('snap'),
       angleUnit: value.angleUnit === 'radians' ? 'radians' : 'degrees',
+      animationSpeed: typeof value.animationSpeed === 'number' && [0, 0.25, 0.5, 1, 2].includes(value.animationSpeed) ? value.animationSpeed : DEFAULT_GRAPH_SETTINGS.animationSpeed,
     };
   } catch { return { ...DEFAULT_GRAPH_SETTINGS }; }
 }

@@ -175,6 +175,7 @@ html, body {
 #panel-header .header-actions { margin-left: auto; display: flex; align-items: center; gap: 2px; }
 #panel-header .header-actions button { width: 28px; height: 28px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--muted); cursor: pointer; }
 #panel-header .header-actions button:hover, #panel-header .header-actions button:focus-visible { background: var(--surface-soft); color: var(--text); outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+#graph-settings, #theme-toggle { display: none !important; }
 .panel-tabs { display: flex; gap: 4px; padding: 10px 2px 8px; border-bottom: 1px solid var(--divider); }
 .panel-tab { flex: 1; min-height: 30px; border: 1px solid transparent; border-radius: 5px; background: transparent; color: var(--muted); font: 600 11px Inter, "Avenir Next", ui-sans-serif, system-ui, sans-serif; cursor: pointer; }
 .panel-tab:hover, .panel-tab:focus-visible { background: var(--surface-soft); color: var(--text); outline: 2px solid var(--focus-ring); outline-offset: 1px; }

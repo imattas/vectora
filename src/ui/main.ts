@@ -338,7 +338,7 @@ document.addEventListener('visibilitychange', () => {
 const startTime = performance.now();
 
 /** Seconds since load: the value of `t` everywhere in a graph. */
-const graphTime = () => (performance.now() - startTime) / 1000;
+const graphTime = () => (performance.now() - startTime) / 1000 * graphSettings.animationSpeed;
 
 /** Send the state system back to its `a(0)` values, starting from now. */
 function resetState() {
@@ -3410,7 +3410,9 @@ syncThemeToggle();
 themeToggle?.addEventListener('click', toggleTheme);
 
 // Sidebar tabs keep graph settings in the panel instead of a floating overlay.
-const settingsButton = document.getElementById('graph-settings');
+document.getElementById('graph-settings')?.remove();
+document.getElementById('theme-toggle')?.remove();
+const settingsButton = document.getElementById('settings-tab');
 if (settingsButton) {
   const panel = document.getElementById('panel')!;
   const mainTab = document.getElementById('main-tab')!;
@@ -3420,29 +3422,24 @@ if (settingsButton) {
   settings.setAttribute('role', 'tabpanel'); settings.setAttribute('aria-label', 'Graph settings');
   settingsButton.setAttribute('aria-haspopup', 'false');
   settingsButton.setAttribute('aria-controls', settings.id);
-  const heading = document.createElement('div'); heading.className = 'graph-settings-heading';
-  const title = document.createElement('strong'); title.id = 'graph-settings-title'; title.textContent = 'Graph settings'; settings.setAttribute('aria-labelledby', title.id);
   const selectTab = (settingsActive: boolean, focus = false) => {
     panel.dataset.tab = settingsActive ? 'settings' : 'main';
     settings.hidden = !settingsActive;
     mainTab.setAttribute('aria-selected', String(!settingsActive));
     settingsTab.setAttribute('aria-selected', String(settingsActive));
     settingsButton.setAttribute('aria-expanded', String(settingsActive));
-    if (focus) (settingsActive ? settings : mainTab).querySelector<HTMLElement>('.settings-category input, .settings-category select, .settings-category button')?.focus();
+    if (focus) (settingsActive ? settings.querySelector<HTMLElement>('.settings-category > summary') : mainTab)?.focus();
   };
   const closeSettings = () => { selectTab(false); mainTab.focus(); };
-  const close = makeButton('', 'Close graph settings', closeSettings, 'graph-settings-close');
-  close.addEventListener('pointerdown', closeSettings);
-  close.append(makeIcon('close')); heading.append(title, close); settings.append(heading);
   const category = (label: string, open = false) => {
     const group = document.createElement('details'); group.className = 'settings-category'; group.open = open;
     const summary = document.createElement('summary'); summary.textContent = label; group.append(summary, document.createElement('div'));
     return { group, body: group.lastElementChild as HTMLElement };
   };
-  const appearance = category('Appearance', true);
-  const interaction = category('Interaction', true);
-  const view = category('View');
-  settings.append(appearance.group, interaction.group, view.group);
+  const appearance = category('Appearance');
+  const interaction = category('Interaction');
+  const animation = category('Animation');
+  settings.append(appearance.group, interaction.group, animation.group);
   const addSetting = (key: 'grid' | 'axes' | 'labels' | 'points' | 'snap', label: string, target: HTMLElement) => {
     const row = document.createElement('label'); row.className = 'graph-setting';
     const input = document.createElement('input'); input.type = 'checkbox'; input.checked = graphSettings[key]; input.setAttribute('aria-label', label); input.addEventListener('change', () => { graphSettings = { ...graphSettings, [key]: input.checked }; saveGraphSettings(graphSettings); requestRender(); });
@@ -3464,17 +3461,19 @@ if (settingsButton) {
   }
   angleSelect.addEventListener('change', () => { graphSettings = { ...graphSettings, angleUnit: angleSelect.value === 'radians' ? 'radians' : 'degrees' }; saveGraphSettings(graphSettings); requestRender(); });
   angleLabel.append(angleSelect); interaction.body.append(angleLabel);
-  const resetView = makeButton('Reset view', 'Reset graph view', resetGraphView, 'graph-settings-reset');
-  const zoomRow = document.createElement('div'); zoomRow.className = 'settings-view-actions';
-  zoomRow.append(makeButton('Zoom in', 'Zoom in', () => { const p = canvasCenter(); zoomAt(p.x, p.y, 0.8); }, 'graph-settings-reset'), makeButton('Zoom out', 'Zoom out', () => { const p = canvasCenter(); zoomAt(p.x, p.y, 1.25); }, 'graph-settings-reset'));
-  view.body.append(resetView, zoomRow);
-  const reset = makeButton('Reset', 'Reset graph settings', () => { graphSettings = { ...DEFAULT_GRAPH_SETTINGS }; saveGraphSettings(graphSettings); settings.querySelectorAll<HTMLInputElement>('input').forEach((input, i) => { input.checked = [graphSettings.grid, graphSettings.axes, graphSettings.labels, graphSettings.points, graphSettings.snap][i]; }); angleSelect.value = graphSettings.angleUnit; requestRender(); }, 'graph-settings-reset');
+  const animationLabel = document.createElement('label'); animationLabel.className = 'graph-setting'; animationLabel.textContent = 'Animation speed';
+  const animationSelect = document.createElement('select'); animationSelect.setAttribute('aria-label', 'Animation speed');
+  for (const [value, label] of [['0', 'Paused'], ['0.25', '0.25×'], ['0.5', '0.5×'], ['1', 'Normal'], ['2', '2×']] as const) {
+    const option = document.createElement('option'); option.value = value; option.textContent = label; option.selected = graphSettings.animationSpeed === Number(value); animationSelect.append(option);
+  }
+  animationSelect.addEventListener('change', () => { graphSettings = { ...graphSettings, animationSpeed: Number(animationSelect.value) }; saveGraphSettings(graphSettings); requestRender(); });
+  animationLabel.append(animationSelect); animation.body.append(animationLabel);
+  const reset = makeButton('Reset graph settings', 'Reset graph settings', () => { graphSettings = { ...DEFAULT_GRAPH_SETTINGS }; saveGraphSettings(graphSettings); settings.querySelectorAll<HTMLInputElement>('input').forEach((input, i) => { input.checked = [graphSettings.grid, graphSettings.axes, graphSettings.labels, graphSettings.points, graphSettings.snap][i]; }); angleSelect.value = graphSettings.angleUnit; animationSelect.value = String(graphSettings.animationSpeed); requestRender(); }, 'graph-settings-reset');
   settings.append(reset); panel.append(settings);
   syncGraphSettingsUi = () => { settings.querySelectorAll<HTMLInputElement>('input').forEach((input, i) => { input.checked = [graphSettings.grid, graphSettings.axes, graphSettings.labels, graphSettings.points, graphSettings.snap][i]; }); angleSelect.value = graphSettings.angleUnit; };
   syncThemePreferenceUi = () => { themeSelect.value = getThemePreference(); };
   mainTab.addEventListener('click', () => selectTab(false, true));
   settingsTab.addEventListener('click', () => selectTab(true, true));
-  settingsButton.addEventListener('click', () => selectTab(true, true));
   settingsButton.setAttribute('aria-expanded', 'false');
   document.addEventListener('keydown', event => {
     if (event.key !== 'Escape') return;
