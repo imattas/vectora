@@ -35,6 +35,8 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET' || new URL(event.request.url).origin !== self.location.origin) return;
   if (event.request.mode === 'navigate') {
+    const path = new URL(event.request.url).pathname;
+    const offlineFallback = path.startsWith('/help') ? '/help/' : '/';
     event.respondWith(fetch(event.request).then(response => {
       if (response.ok && response.type === 'basic') {
         const copy = response.clone();
@@ -44,7 +46,7 @@ self.addEventListener('fetch', event => {
         event.waitUntil(caches.open(CACHE).then(cache => cache.put(key, copy)).catch(() => {}));
       }
       return response;
-    }).catch(() => caches.match(event.request).then(cached => cached ?? caches.match('/'))));
+    }).catch(() => caches.match(event.request).then(cached => cached ?? caches.match(offlineFallback))));
     return;
   }
   event.respondWith(fetch(event.request).then(response => {
