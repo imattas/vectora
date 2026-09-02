@@ -238,6 +238,8 @@ html, body {
 #state-reset[hidden] { display: none; }
 #theme-toggle:hover,
 #state-reset:hover { background: var(--eq-focus); color: var(--muted-hover); }
+#theme-toggle:focus-visible,
+#state-reset:focus-visible { background: var(--eq-focus); color: var(--text); outline: 2px solid var(--focus-ring); outline-offset: 1px; }
 
 #equations {
   /* Scrolls when the list outgrows the panel's max-height. `none` (not
