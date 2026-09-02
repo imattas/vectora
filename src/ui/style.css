@@ -317,7 +317,8 @@ html, body {
 .function-autocomplete { position: fixed; z-index: 40; display: grid; min-width: 170px; max-width: 260px; max-height: 220px; overflow-y: auto; padding: 4px; border: 1px solid var(--panel-border); border-radius: 6px; background: var(--panel-bg); box-shadow: 0 5px 18px var(--panel-shadow); }
 .function-autocomplete[hidden] { display: none; }
 .function-suggestion { border: 0; border-radius: 4px; background: transparent; color: var(--text); cursor: pointer; padding: 6px 8px; text-align: left; font: 13px ui-monospace, monospace; }
-.function-suggestion:hover, .function-suggestion:focus-visible { background: var(--eq-focus); color: var(--accent); outline: none; }
+.function-suggestion:hover { background: var(--eq-focus); color: var(--accent); }
+.function-suggestion:focus-visible { background: var(--eq-focus); color: var(--accent); outline: 2px solid var(--focus-ring); outline-offset: -1px; }
 .math-source { display: none; white-space: pre-wrap; }
 .eq-line.focused .math-source { display: inline; }
 .math-preview { display: inline; white-space: pre-wrap; pointer-events: auto; user-select: none; cursor: text; }
@@ -397,6 +398,7 @@ html, body {
   -webkit-user-select: text;
 }
 .eq-slider-bound:focus { color: var(--bound-focus); }
+.eq-slider-bound:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; border-radius: 3px; }
 .eq-slider-bound::-webkit-outer-spin-button,
 .eq-slider-bound::-webkit-inner-spin-button {
   -webkit-appearance: none;
@@ -588,7 +590,8 @@ html, body {
 .symbol-keyboard-group { margin: 8px 0 4px; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; }
 .symbol-keyboard-row { display: flex; flex-wrap: wrap; gap: 4px; }
 .symbol-key { width: 26px; height: 26px; padding: 0; border: 1px solid var(--panel-border); border-radius: 4px; background: transparent; color: var(--text); cursor: pointer; font-size: 15px; }
-.symbol-key:hover, .symbol-key:focus-visible { border-color: var(--accent); background: var(--eq-focus); outline: none; }
+.symbol-key:hover { border-color: var(--accent); background: var(--eq-focus); }
+.symbol-key:focus-visible { border-color: var(--accent); background: var(--eq-focus); outline: 2px solid var(--focus-ring); outline-offset: -1px; }
 .symbol-keyboard-close { margin-top: 10px; padding: 3px 7px; border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 11px; }
 #keyboard-dock { flex: none; margin-top: auto; padding-top: 10px; border-top: 1px solid var(--divider); }
 #keyboard-dock::-webkit-scrollbar, .symbol-keyboard-popover::-webkit-scrollbar { display: none; width: 0; height: 0; }
