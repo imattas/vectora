@@ -99,6 +99,7 @@ html, body {
   height: calc(100% + env(safe-area-inset-top));
 }
 #gl { touch-action: none; }
+#gl:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 #overlay { pointer-events: none; }
 #graph-controls { position: fixed; z-index: 3; left: calc(var(--sidebar-width) + 14px); bottom: 14px; display: flex; gap: 4px; }
 #mobile-panel-toggle { display: none; }

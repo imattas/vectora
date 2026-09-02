@@ -528,6 +528,22 @@ await scenario('header popovers do not overlap and close with Escape', async () 
   check('graph settings closes with Escape', closed.settings === true && closed.focused === 'graph-settings', JSON.stringify(closed));
 });
 
+await scenario('graph canvas supports keyboard navigation', async () => {
+  await page.goto(ORIGIN + '/#y%3Dx');
+  await page.waitForSelector('#gl');
+  const canvas = page.locator('#gl');
+  const before = await page.evaluate(() => (globalThis as { __eq?: { view?: { upp: number } } }).__eq?.view?.upp ?? 0);
+  await canvas.focus();
+  await page.keyboard.press('Equal');
+  const afterZoom = await page.evaluate(() => (globalThis as { __eq?: { view?: { upp: number } } }).__eq?.view?.upp ?? 0);
+  const state = await page.evaluate(() => ({
+    tabIndex: document.querySelector('#gl')?.getAttribute('tabindex'),
+    role: document.querySelector('#gl')?.getAttribute('role'),
+    focused: document.activeElement?.id === 'gl',
+  }));
+  check('graph canvas supports keyboard navigation', state.tabIndex === '0' && state.role === 'img' && state.focused && afterZoom < before, JSON.stringify({ before, afterZoom, ...state }));
+});
+
 await browser.close();
 server.kill();
 

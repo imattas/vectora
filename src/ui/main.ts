@@ -3321,6 +3321,23 @@ const canvasCenter = () => {
 document.getElementById('zoom-in')?.addEventListener('click', () => { const p = canvasCenter(); zoomAt(p.x, p.y, 0.8); });
 document.getElementById('zoom-out')?.addEventListener('click', () => { const p = canvasCenter(); zoomAt(p.x, p.y, 1.25); });
 document.getElementById('home-view')?.addEventListener('click', resetGraphView);
+canvas.addEventListener('keydown', event => {
+  if (event.key === 'Home') { resetGraphView(); event.preventDefault(); return; }
+  if (event.key === '+' || event.key === '=' || event.key === '-' || event.key === '_') {
+    const p = canvasCenter(); zoomAt(p.x, p.y, event.key === '+' || event.key === '=' ? 0.8 : 1.25); event.preventDefault(); return;
+  }
+  if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return;
+  const direction = event.key === 'ArrowLeft' ? -1 : event.key === 'ArrowRight' ? 1 : 0;
+  const vertical = event.key === 'ArrowUp' ? 1 : event.key === 'ArrowDown' ? -1 : 0;
+  if (mode === '2d') {
+    view.cx += direction * canvas.width * view.upp * 0.08;
+    view.cy += vertical * canvas.height * view.upp * 0.08;
+  } else {
+    camera.theta -= direction * 0.08;
+    camera.phi = clampPhi(camera.phi + vertical * 0.08);
+  }
+  requestRender(); scheduleViewportWriteback(); event.preventDefault();
+});
 
 // --- theme ---
 
