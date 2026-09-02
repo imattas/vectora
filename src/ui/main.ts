@@ -3432,20 +3432,33 @@ if (settingsButton) {
   const close = makeButton('', 'Close graph settings', closeSettings, 'graph-settings-close');
   close.addEventListener('pointerdown', closeSettings);
   close.append(makeIcon('close')); heading.append(title, close); settings.append(heading);
-  const addSetting = (key: 'grid' | 'axes' | 'labels' | 'points' | 'snap', label: string) => {
+  const category = (label: string, open = false) => {
+    const group = document.createElement('details'); group.className = 'settings-category'; group.open = open;
+    const summary = document.createElement('summary'); summary.textContent = label; group.append(summary, document.createElement('div'));
+    return { group, body: group.lastElementChild as HTMLElement };
+  };
+  const appearance = category('Appearance', true);
+  const interaction = category('Interaction', true);
+  const view = category('View');
+  settings.append(appearance.group, interaction.group, view.group);
+  const addSetting = (key: 'grid' | 'axes' | 'labels' | 'points' | 'snap', label: string, target: HTMLElement) => {
     const row = document.createElement('label'); row.className = 'graph-setting';
     const input = document.createElement('input'); input.type = 'checkbox'; input.checked = graphSettings[key]; input.setAttribute('aria-label', label); input.addEventListener('change', () => { graphSettings = { ...graphSettings, [key]: input.checked }; saveGraphSettings(graphSettings); requestRender(); });
-    row.append(input, document.createTextNode(label)); settings.append(row);
+    row.append(input, document.createTextNode(label)); target.append(row);
   };
-  addSetting('grid', 'Grid'); addSetting('axes', 'Axes'); addSetting('labels', 'Axis labels'); addSetting('points', 'Points and markers');
-  addSetting('snap', 'Snap dragged points to grid');
+  addSetting('grid', 'Grid', appearance.body); addSetting('axes', 'Axes', appearance.body); addSetting('labels', 'Axis labels', appearance.body); addSetting('points', 'Points and markers', appearance.body);
+  addSetting('snap', 'Snap dragged points to grid', interaction.body);
   const angleLabel = document.createElement('label'); angleLabel.className = 'graph-setting'; angleLabel.textContent = 'Angle units';
   const angleSelect = document.createElement('select'); angleSelect.setAttribute('aria-label', 'Angle units');
   for (const [value, label] of [['degrees', 'Degrees'], ['radians', 'Radians']] as const) {
     const option = document.createElement('option'); option.value = value; option.textContent = label; option.selected = graphSettings.angleUnit === value; angleSelect.append(option);
   }
   angleSelect.addEventListener('change', () => { graphSettings = { ...graphSettings, angleUnit: angleSelect.value === 'radians' ? 'radians' : 'degrees' }; saveGraphSettings(graphSettings); requestRender(); });
-  angleLabel.append(angleSelect); settings.append(angleLabel);
+  angleLabel.append(angleSelect); interaction.body.append(angleLabel);
+  const resetView = makeButton('Reset view', 'Reset graph view', resetGraphView, 'graph-settings-reset');
+  const zoomRow = document.createElement('div'); zoomRow.className = 'settings-view-actions';
+  zoomRow.append(makeButton('Zoom in', 'Zoom in', () => { const p = canvasCenter(); zoomAt(p.x, p.y, 0.8); }, 'graph-settings-reset'), makeButton('Zoom out', 'Zoom out', () => { const p = canvasCenter(); zoomAt(p.x, p.y, 1.25); }, 'graph-settings-reset'));
+  view.body.append(resetView, zoomRow);
   const reset = makeButton('Reset', 'Reset graph settings', () => { graphSettings = { ...DEFAULT_GRAPH_SETTINGS }; saveGraphSettings(graphSettings); settings.querySelectorAll<HTMLInputElement>('input').forEach((input, i) => { input.checked = [graphSettings.grid, graphSettings.axes, graphSettings.labels, graphSettings.points, graphSettings.snap][i]; }); angleSelect.value = graphSettings.angleUnit; requestRender(); }, 'graph-settings-reset');
   settings.append(reset); panel.append(settings);
   syncGraphSettingsUi = () => { settings.querySelectorAll<HTMLInputElement>('input').forEach((input, i) => { input.checked = [graphSettings.grid, graphSettings.axes, graphSettings.labels, graphSettings.points, graphSettings.snap][i]; }); angleSelect.value = graphSettings.angleUnit; };

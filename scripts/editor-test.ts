@@ -594,6 +594,9 @@ await scenario('sidebar tabs switch between main and graph settings', async () =
   const panelBounds = await page.locator('#settings-panel').boundingBox();
   const selectStyle = await page.locator('#settings-panel select').evaluate(el => getComputedStyle(el).appearance);
   check('settings tab uses the sidebar layout and styled controls', !!panelBounds && selectStyle === 'none', JSON.stringify({ panelBounds, selectStyle }));
+  await page.locator('.settings-category').nth(2).locator('summary').click();
+  const categories = await page.locator('.settings-category').evaluateAll(nodes => nodes.map(node => (node as HTMLDetailsElement).open));
+  check('settings categories expand and retract independently', categories.length === 3 && categories[2] === true, JSON.stringify(categories));
   await page.locator('.graph-settings-close').click();
   await load(page, ['y = x']);
   await page.locator('.symbol-keyboard-trigger').click();
