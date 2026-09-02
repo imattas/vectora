@@ -3381,7 +3381,26 @@ if (settingsButton) {
   settingsButton.setAttribute('aria-controls', settings.id);
   const heading = document.createElement('div'); heading.className = 'graph-settings-heading';
   const title = document.createElement('strong'); title.id = 'graph-settings-title'; title.textContent = 'Graph settings'; settings.setAttribute('aria-labelledby', title.id);
-  const close = makeButton('', 'Close graph settings', () => { settings.hidden = true; settingsButton.setAttribute('aria-expanded', 'false'); settingsButton.focus(); }, 'graph-settings-close'); close.append(makeIcon('close')); heading.append(title, close); settings.append(heading);
+  const closeSettings = () => { settings.hidden = true; settingsButton.setAttribute('aria-expanded', 'false'); settingsButton.focus(); };
+  const close = makeButton('', 'Close graph settings', closeSettings, 'graph-settings-close'); close.append(makeIcon('close')); heading.append(title, close); settings.append(heading);
+  let drag: { id: number; x: number; y: number; left: number; top: number } | null = null;
+  const clampPosition = (left: number, top: number) => ({
+    left: Math.max(8, Math.min(left, window.innerWidth - settings.offsetWidth - 8)),
+    top: Math.max(8, Math.min(top, window.innerHeight - settings.offsetHeight - 8)),
+  });
+  heading.addEventListener('pointerdown', event => {
+    if ((event.target as Element).closest('button')) return;
+    const rect = settings.getBoundingClientRect();
+    drag = { id: event.pointerId, x: event.clientX, y: event.clientY, left: rect.left, top: rect.top };
+    heading.setPointerCapture(event.pointerId); event.preventDefault();
+  });
+  heading.addEventListener('pointermove', event => {
+    if (!drag || drag.id !== event.pointerId) return;
+    const next = clampPosition(drag.left + event.clientX - drag.x, drag.top + event.clientY - drag.y);
+    settings.style.left = next.left + 'px'; settings.style.top = next.top + 'px'; settings.style.right = 'auto';
+  });
+  const stopDrag = (event: PointerEvent) => { if (drag?.id === event.pointerId) drag = null; };
+  heading.addEventListener('pointerup', stopDrag); heading.addEventListener('pointercancel', stopDrag);
   const addSetting = (key: 'grid' | 'axes' | 'labels' | 'points' | 'snap', label: string) => {
     const row = document.createElement('label'); row.className = 'graph-setting';
     const input = document.createElement('input'); input.type = 'checkbox'; input.checked = graphSettings[key]; input.setAttribute('aria-label', label); input.addEventListener('change', () => { graphSettings = { ...graphSettings, [key]: input.checked }; saveGraphSettings(graphSettings); requestRender(); });
@@ -3415,8 +3434,7 @@ if (settingsButton) {
   document.addEventListener('keydown', event => {
     if (event.key !== 'Escape') return;
     if (settings.hidden) return;
-    settings.hidden = true;
-    settingsButton.setAttribute('aria-expanded', 'false');
+    closeSettings();
     settingsButton.focus();
     event.preventDefault();
   });

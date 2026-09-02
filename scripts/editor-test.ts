@@ -551,6 +551,19 @@ await scenario('header popovers do not overlap and close with Escape', async () 
     focused: document.activeElement?.id,
   }));
   check('graph settings close button works', clickedClose.hidden === true && clickedClose.focused === 'graph-settings', JSON.stringify(clickedClose));
+  await page.locator('#graph-settings').click();
+  const heading = page.locator('.graph-settings-heading');
+  const beforeDrag = await heading.boundingBox();
+  if (!beforeDrag) throw new Error('settings heading has no bounds');
+  await page.mouse.move(beforeDrag.x + 40, beforeDrag.y + 12);
+  await page.mouse.down();
+  await page.mouse.move(beforeDrag.x + 120, beforeDrag.y + 52);
+  await page.mouse.up();
+  const afterDrag = await heading.boundingBox();
+  const selectStyle = await page.locator('.graph-settings-popover select').evaluate(el => getComputedStyle(el).appearance);
+  check('graph settings can be dragged and uses styled controls', !!afterDrag && afterDrag.x > beforeDrag.x + 50 && afterDrag.y > beforeDrag.y + 20 && selectStyle === 'none', JSON.stringify({ beforeDrag, afterDrag, selectStyle }));
+  await page.locator('.graph-settings-close').click();
+  await load(page, ['y = x']);
   await page.locator('.symbol-keyboard-trigger').click();
   await page.locator('.symbol-keyboard-close').click();
   const keyboardClosed = await page.evaluate(() => document.querySelector<HTMLElement>('.symbol-keyboard-popover')?.hidden);

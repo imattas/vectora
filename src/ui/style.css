@@ -176,14 +176,18 @@ html, body {
 #panel-header .header-actions button { width: 28px; height: 28px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--muted); cursor: pointer; }
 #panel-header .header-actions button:hover, #panel-header .header-actions button:focus-visible { background: var(--surface-soft); color: var(--text); outline: 2px solid var(--focus-ring); outline-offset: 1px; }
 .graph-settings-popover { position: fixed; z-index: 100; top: 44px; right: 10px; display: grid; min-width: 190px; gap: 8px; padding: 10px; border: 1px solid var(--panel-border); border-radius: 8px; background: var(--panel-bg); color: var(--text); box-shadow: 0 8px 28px var(--panel-shadow); font-size: 12px; }
-.graph-settings-heading { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.graph-settings-heading { display: flex; align-items: center; justify-content: space-between; gap: 14px; cursor: grab; user-select: none; }
+.graph-settings-heading:active { cursor: grabbing; }
 .graph-settings-close { width: 22px; height: 22px; padding: 3px; border: 0; border-radius: 4px; background: transparent; color: var(--muted); cursor: pointer; }
 .graph-settings-close:hover, .graph-settings-close:focus-visible { background: var(--surface-soft); color: var(--text); outline: 2px solid var(--focus-ring); outline-offset: 1px; }
 .graph-settings-close svg { width: 16px; height: 16px; display: block; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .graph-setting { display: flex; align-items: center; gap: 8px; cursor: pointer; }
-.graph-setting input { accent-color: var(--accent); }
+.graph-setting input { appearance: none; width: 16px; height: 16px; flex: none; margin: 0; border: 1px solid var(--panel-border); border-radius: 4px; background: var(--surface-soft); cursor: pointer; }
+.graph-setting input:checked { border-color: var(--accent); background: var(--accent); }
+.graph-setting input:checked::after { content: ''; display: block; width: 4px; height: 8px; margin: 2px 0 0 5px; border: solid var(--page-bg); border-width: 0 2px 2px 0; transform: rotate(45deg); }
 .graph-settings-reset { justify-self: start; padding: 3px 7px; border: 1px solid var(--panel-border); border-radius: 4px; background: transparent; color: var(--muted); cursor: pointer; }
 .graph-settings-reset:hover, .graph-settings-reset:focus-visible { color: var(--text); border-color: var(--accent); }
+.graph-settings-popover select { width: 100%; min-height: 30px; padding: 0 28px 0 9px; border: 1px solid var(--panel-border); border-radius: 5px; appearance: none; background: var(--surface-soft) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='m2 4 4 4 4-4' fill='none' stroke='%23888' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right 9px center; color: var(--text); font: 12px ui-sans-serif, system-ui; cursor: pointer; }
 .graph-setting input:focus-visible, .graph-settings-popover select:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .header-link { color: var(--muted); text-decoration: none; font-size: 12px; padding: 4px 5px; }
 .header-link:hover { color: var(--muted-hover); }
