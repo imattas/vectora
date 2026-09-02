@@ -343,6 +343,7 @@ await scenario('parametric 3D scenes auto-frame with SVG controls', async () => 
     radius: (globalThis as { __eq?: { camera?: { radius: number } } }).__eq?.camera?.radius ?? Infinity,
     errors: [...document.querySelectorAll('.eq-error')].map(el => el.textContent),
     svgControls: document.querySelectorAll('#zoom-in svg, #zoom-out svg, #home-view svg, #graph-settings svg, #onboarding-help svg, #theme-toggle svg, #sidebar-actions .add-menu-trigger svg, #keyboard-dock .symbol-keyboard-trigger svg').length,
+    controlsRole: document.querySelector('#graph-controls')?.getAttribute('role'),
   }));
   await page.goto(ORIGIN + '/#' + encodeURIComponent('tube((sin(2pi u) + 2sin(4pi u), cos(2pi u) - 2cos(4pi u), -sin(6pi u)))'));
   await page.waitForTimeout(300);
@@ -354,7 +355,7 @@ await scenario('parametric 3D scenes auto-frame with SVG controls', async () => 
   await page.locator('#home-view').click();
   await page.waitForTimeout(300);
   const resetRadius = await page.evaluate(() => (globalThis as { __eq?: { camera?: { radius: number } } }).__eq?.camera?.radius ?? Infinity);
-  check('parametric 3D scenes auto-frame with SVG controls', state.radius < 6 && knot.radius > 0 && resetRadius < 6 && state.errors.length === 0 && knot.errors.length === 0 && state.svgControls === 8, JSON.stringify({ ...state, knot, resetRadius }));
+  check('parametric 3D scenes auto-frame with SVG controls', state.radius < 6 && knot.radius > 0 && resetRadius < 6 && state.errors.length === 0 && knot.errors.length === 0 && state.svgControls === 8 && state.controlsRole === 'group', JSON.stringify({ ...state, knot, resetRadius }));
 });
 
 await scenario('row action menus expose state and restore focus', async () => {
