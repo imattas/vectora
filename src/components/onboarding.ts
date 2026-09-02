@@ -5,7 +5,7 @@ interface OnboardingOptions { initiallyOpen: boolean }
 
 const STEPS = [
   ['01 / WRITE', 'Your equations are the canvas', 'Click the editor and type ordinary math. Vectora updates the graph as you work — curves, fields, geometry, probability, and 3D scenes use the same surface.', 'Try: y = sin(x) or x^2 + y^2 = 4'],
-  ['02 / EXPLORE', 'Move through the graph', 'Drag the canvas to pan, use the wheel or pinch to zoom, and use two fingers or the right mouse button to orbit 3D scenes. Reset the view with the home button.', 'The graph owns gestures; the sidebar owns text.'],
+  ['02 / EXPLORE', 'Move through the graph', 'Drag the canvas to pan, use the wheel or pinch to zoom, and use two fingers or the right mouse button to orbit 3D scenes. When the canvas is focused, use arrow keys to pan or orbit, +/− to zoom, and Home to reset.', 'The graph owns gestures; the sidebar owns text.'],
   ['03 / DISCOVER', 'Start from an example', 'Open Examples in the sidebar for ready-to-edit scenes, or use the + menu for points, lines, circles, polygons, tables, and system solving. Nothing is sent to a server.', 'Examples are starting points, not locked demos.'],
   ['04 / SHARE', 'The address bar is your share button', 'Every graph is encoded in its URL. Edit a row, copy the link, and someone else can open the same equations immediately. Vectora is still in development, so expect rough edges.', 'Made by Ian Mattas · WebGL2 required'],
 ] as const;
