@@ -1,9 +1,32 @@
-const CACHE = 'vectora-shell-v2';
-const SHELL = ['/', '/help/', '/manifest.webmanifest', '/icon.svg', '/icon-light.svg', '/icon-192.png', '/icon-512.png', '/icon-maskable-512.png', '/apple-touch-icon.png'];
+const CACHE = 'vectora-shell-v3';
+const PAGES = ['/', '/help/'];
+const SHELL = ['/manifest.webmanifest', '/icon.svg', '/icon-light.svg', '/icon-192.png', '/icon-512.png', '/icon-maskable-512.png', '/apple-touch-icon.png'];
+
+async function cachePage(cache, path) {
+  const response = await fetch(new Request(path, { cache: 'no-store' }));
+  if (!response.ok || response.type !== 'basic') return;
+  await cache.put(path, response.clone());
+  const html = await response.text();
+  const refs = [...html.matchAll(/(?:src|href)=["']([^"']+)["']/gi)]
+    .map(match => match[1])
+    .filter(ref => ref && !ref.startsWith('#'));
+  await Promise.all(refs.map(async ref => {
+    try {
+      const url = new URL(ref, new URL(path, self.location.origin));
+      if (url.origin !== self.location.origin || url.pathname === '/sw.js') return;
+      await cache.add(url.href);
+    } catch {
+      // One optional asset must not prevent the rest of the shell installing.
+    }
+  }));
+}
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE)
-    .then(cache => Promise.all(SHELL.map(url => cache.add(url).catch(() => undefined))))
+    .then(async cache => {
+      await Promise.all(SHELL.map(url => cache.add(url).catch(() => undefined)));
+      await Promise.all(PAGES.map(path => cachePage(cache, path).catch(() => undefined)));
+    })
     .then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', event => {
