@@ -340,6 +340,7 @@ html, body {
 .row-color-trigger, .row-options-trigger { position: absolute; top: -27px; border: 0; cursor: pointer; }
 .row-color-trigger { left: -22px; width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--dot-border); }
 .row-options-trigger { right: 2px; top: 50%; width: 24px; height: 24px; transform: translateY(-50%); background: transparent; color: var(--muted); font-size: 16px; opacity: 0; transition: opacity .12s; }
+.row-options-trigger svg { width: 16px; height: 16px; display: block; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .row-options-trigger:hover { color: var(--text); }
 .eq-line:hover .row-options-trigger, .eq-line.focused .row-options-trigger, .row-options-trigger:focus { opacity: 1; }
 .color-picker, .row-options, .add-menu-popover { position: absolute; z-index: 5; padding: 5px; border: 1px solid var(--panel-border); border-radius: 6px; background: var(--panel-bg); box-shadow: 0 4px 14px var(--panel-shadow); }

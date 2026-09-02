@@ -1,3 +1,5 @@
+import { makeIcon } from '../icon.ts';
+
 type OpenMenu = { menu: HTMLElement; trigger: HTMLButtonElement; close: (restoreFocus?: boolean) => void };
 const openMenus = new Set<OpenMenu>();
 let menuListenersInstalled = false;
@@ -53,7 +55,7 @@ export function makeRowOptions(title: string, actions: Array<{ label: string; on
   const trigger = document.createElement('button'); trigger.type = 'button'; trigger.className = 'row-options-trigger';
   entry.trigger = trigger;
   entry.close = (restoreFocus = false) => { closeMenu(); if (restoreFocus) trigger.focus(); };
-  trigger.textContent = '⋮'; trigger.title = title; trigger.setAttribute('aria-label', title);
+  trigger.append(makeIcon('more')); trigger.title = title; trigger.setAttribute('aria-label', title);
   trigger.setAttribute('aria-haspopup', 'menu'); trigger.setAttribute('aria-expanded', 'false');
   trigger.setAttribute('aria-controls', menu.id);
   trigger.addEventListener('click', e => {
