@@ -1697,13 +1697,16 @@ function makeSlider(eq: Equation): SliderUI {
   const min = document.createElement('input');
   min.type = 'number';
   min.className = 'eq-slider-bound';
+  min.setAttribute('aria-label', 'Slider minimum');
   min.title = 'Slider minimum';
   const range = document.createElement('input');
   range.type = 'range';
   range.className = 'eq-slider-range';
+  range.setAttribute('aria-label', `Value of ${eq.def?.name ?? 'slider'}`);
   const max = document.createElement('input');
   max.type = 'number';
   max.className = 'eq-slider-bound';
+  max.setAttribute('aria-label', 'Slider maximum');
   max.title = 'Slider maximum';
   box.append(min, range, max);
 
