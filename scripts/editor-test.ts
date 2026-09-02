@@ -537,6 +537,7 @@ await scenario('typed math aliases open editable templates', async () => {
     text: document.querySelector<HTMLElement>('.math-source')?.textContent,
     previewDisplay: getComputedStyle(document.querySelector<HTMLElement>('.math-preview')!).display,
     radical: document.querySelector('.math-radical')?.textContent,
+    placeholder: document.querySelector('.math-placeholder') !== null,
     caret: (() => {
       const selection = getSelection();
       if (!selection?.focusNode) return -1;
@@ -547,7 +548,8 @@ await scenario('typed math aliases open editable templates', async () => {
       return range.toString().length;
     })(),
   }));
-  check('typed sqrt opens a visual template with the caret inside', state.text?.startsWith('sqrt()') === true && state.caret === 5 && state.previewDisplay === 'inline' && state.radical === '√', JSON.stringify(state));
+  check('typed sqrt opens a visual template with the caret inside', state.text?.startsWith('sqrt()') === true && state.caret === 5 && state.previewDisplay === 'inline' && state.radical === '√' && state.placeholder, JSON.stringify(state));
+  await page.locator('.math-placeholder').first().click();
   await page.keyboard.type('x');
   const filled = await page.evaluate(() => ({
     text: document.querySelector<HTMLElement>('.math-source')?.textContent,

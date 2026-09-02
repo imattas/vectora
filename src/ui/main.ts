@@ -2384,6 +2384,25 @@ listEl.addEventListener('keydown', e => {
     }
     if (suggestions.length && (e.key === 'Tab' || e.key === 'Enter')) { e.preventDefault(); suggestions[autocompleteIndex].click(); return; }
   }
+  const templatePos = caretPos();
+  const templateEq = templatePos && equations[templatePos.line];
+  if (templatePos && templateEq && (e.key === 'ArrowRight' || e.key === ')') && templateEq.text[templatePos.offset] === ')') {
+    e.preventDefault();
+    setCaret(templatePos.line, templatePos.offset + 1);
+    return;
+  }
+  if (templatePos && templateEq && e.key === 'Backspace') {
+    const before = templateEq.text.slice(0, templatePos.offset);
+    const empty = /(?:sqrt|cbrt|abs)\($/.test(before) && templateEq.text[templatePos.offset] === ')';
+    const emptyPower = /\^\($/.test(before) && templateEq.text[templatePos.offset] === ')';
+    if (empty || emptyPower) {
+      const start = templatePos.offset - (emptyPower ? 2 : before.match(/(?:sqrt|cbrt|abs)\($/)![0].length);
+      e.preventDefault();
+      selectLineRange(templatePos.line, start, templatePos.offset + 1);
+      insertStatements('');
+      return;
+    }
+  }
   const mod = e.metaKey || e.ctrlKey;
   if (mod && !e.altKey && e.key.toLowerCase() === 'z') {
     e.preventDefault();

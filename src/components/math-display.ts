@@ -54,6 +54,12 @@ function mark(node: HTMLElement, start: number, end: number): HTMLElement {
   return node;
 }
 
+function appendSlot(parent: HTMLElement, sourceOffset: number): void {
+  const slot = mark(document.createElement('span'), sourceOffset, sourceOffset);
+  slot.className = 'math-placeholder'; slot.textContent = '□'; slot.setAttribute('aria-label', 'Empty math slot');
+  parent.append(slot);
+}
+
 function appendFormatted(parent: HTMLElement, text: string, fractions: boolean, sourceOffset = 0, depth = 0): void {
   if (depth >= MAX_FORMAT_DEPTH) {
     const fallback = document.createElement('span');
@@ -78,8 +84,12 @@ function appendFormatted(parent: HTMLElement, text: string, fractions: boolean, 
         const denominatorText = text.slice(slash + 1, end).replace(/^\((.*)\)$/, '$1');
         mark(numerator, sourceOffset + start, sourceOffset + slash);
         mark(denominator, sourceOffset + slash + 1, sourceOffset + end);
-        appendFormatted(numerator, numeratorText, false, sourceOffset + start + (text[start] === '(' ? 1 : 0), depth + 1);
-        appendFormatted(denominator, denominatorText, false, sourceOffset + slash + 1 + (text[slash + 1] === '(' ? 1 : 0), depth + 1);
+        const numeratorOffset = sourceOffset + start + (text[start] === '(' ? 1 : 0);
+        const denominatorOffset = sourceOffset + slash + 1 + (text[slash + 1] === '(' ? 1 : 0);
+        if (numeratorText) appendFormatted(numerator, numeratorText, false, numeratorOffset, depth + 1);
+        else appendSlot(numerator, numeratorOffset);
+        if (denominatorText) appendFormatted(denominator, denominatorText, false, denominatorOffset, depth + 1);
+        else appendSlot(denominator, denominatorOffset);
         fraction.append(numerator, denominator); parent.append(fraction);
         appendFormatted(parent, text.slice(end), true, sourceOffset + end, depth + 1);
         return;
@@ -95,7 +105,9 @@ function appendFormatted(parent: HTMLElement, text: string, fractions: boolean, 
         const body = document.createElement('span');
         body.className = functionName === 'abs' ? 'math-abs' : 'math-root'; mark(body, sourceOffset + i, sourceOffset + close + 1);
         const content = document.createElement('span'); content.className = 'math-radicand'; mark(content, sourceOffset + open + 1, sourceOffset + close);
-        appendFormatted(content, text.slice(open + 1, close), true, sourceOffset + open + 1, depth + 1);
+        const radicand = text.slice(open + 1, close);
+        if (radicand) appendFormatted(content, radicand, true, sourceOffset + open + 1, depth + 1);
+        else appendSlot(content, sourceOffset + open + 1);
         if (functionName === 'sqrt' || functionName === 'cbrt') { const radical = document.createElement('span'); radical.className = 'math-radical'; radical.textContent = functionName === 'cbrt' ? '³√' : '√'; body.append(radical, content); }
         else { const left = document.createElement('span'); left.textContent = '|'; const right = document.createElement('span'); right.textContent = '|'; body.append(left, content, right); }
         parent.append(body); i = close + 1; continue;
@@ -111,7 +123,9 @@ function appendFormatted(parent: HTMLElement, text: string, fractions: boolean, 
         appendFormatted(index, text.slice(open + 1, comma), false, sourceOffset + open + 1, depth + 1);
         const radical = document.createElement('span'); radical.className = 'math-radical'; radical.textContent = '√';
         const content = document.createElement('span'); content.className = 'math-radicand'; mark(content, sourceOffset + comma + 1, sourceOffset + close);
-        appendFormatted(content, text.slice(comma + 1, close), true, sourceOffset + comma + 1, depth + 1);
+        const radicand = text.slice(comma + 1, close);
+        if (radicand) appendFormatted(content, radicand, true, sourceOffset + comma + 1, depth + 1);
+        else appendSlot(content, sourceOffset + comma + 1);
         body.append(index, radical, content); parent.append(body); i = close + 1; continue;
       }
     }
@@ -122,7 +136,10 @@ function appendFormatted(parent: HTMLElement, text: string, fractions: boolean, 
       if (end > i + 1) {
         const exponent = document.createElement('sup');
         mark(exponent, sourceOffset + i + 1, sourceOffset + end);
-        appendFormatted(exponent, text.slice(i + 1, end).replace(/^\((.*)\)$/, '$1'), false, sourceOffset + i + 1 + (text[i + 1] === '(' ? 1 : 0), depth + 1);
+        const exponentText = text.slice(i + 1, end).replace(/^\((.*)\)$/, '$1');
+        const exponentOffset = sourceOffset + i + 1 + (text[i + 1] === '(' ? 1 : 0);
+        if (exponentText) appendFormatted(exponent, exponentText, false, exponentOffset, depth + 1);
+        else appendSlot(exponent, exponentOffset);
         parent.append(exponent); i = end; continue;
       }
     }
