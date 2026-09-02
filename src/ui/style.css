@@ -600,7 +600,8 @@ html, body {
 .onboarding-dialog::backdrop { background: rgba(8, 11, 16, .58); backdrop-filter: blur(4px); }
 .onboarding-shell { position: relative; padding: 34px 36px 28px; }
 .onboarding-close { position: absolute; top: 12px; right: 14px; width: 28px; height: 28px; display: grid; place-items: center; border: 0; background: transparent; color: var(--muted); cursor: pointer; }
-.onboarding-close:hover, .onboarding-close:focus-visible { color: var(--text); outline: none; }
+.onboarding-close:hover { color: var(--text); }
+.onboarding-close:focus-visible { color: var(--text); outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: 5px; }
 .onboarding-eyebrow { color: var(--accent); font: 700 10px ui-monospace, monospace; letter-spacing: .14em; }
 .onboarding-dialog h1 { margin: 12px 0 10px; font: 650 28px/1.1 ui-sans-serif, system-ui; letter-spacing: -.03em; }
 .onboarding-dialog p { margin: 0; color: var(--summary); font-size: 14px; line-height: 1.55; }
