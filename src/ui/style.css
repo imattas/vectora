@@ -348,9 +348,9 @@ html, body {
 .function-suggestion:hover { background: var(--eq-focus); color: var(--accent); }
 .function-suggestion:focus-visible { background: var(--eq-focus); color: var(--accent); outline: 2px solid var(--focus-ring); outline-offset: -1px; }
 .math-source { display: none; white-space: pre-wrap; }
-.eq-line.focused .math-source { display: inline; }
+.eq-line.focused .math-source { position: absolute; inset: 6px 8px 6px 29px; z-index: 1; display: block; color: transparent; caret-color: var(--text); pointer-events: none; }
 .math-preview { display: inline; white-space: pre-wrap; pointer-events: auto; user-select: none; cursor: text; }
-.eq-line.focused .math-preview { display: none; }
+.eq-line.focused .math-preview { display: inline; }
 .math-fraction { display: inline-flex; flex-direction: column; vertical-align: middle; margin: 0 2px; text-align: center; line-height: 1.05; }
 .math-numerator { padding: 0 3px 1px; border-bottom: 1px solid currentColor; }
 .math-denominator { padding: 1px 3px 0; }

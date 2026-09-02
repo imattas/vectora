@@ -535,6 +535,8 @@ await scenario('typed math aliases open editable templates', async () => {
   await page.keyboard.type('sqrt');
   const state = await page.evaluate(() => ({
     text: document.querySelector<HTMLElement>('.math-source')?.textContent,
+    previewDisplay: getComputedStyle(document.querySelector<HTMLElement>('.math-preview')!).display,
+    radical: document.querySelector('.math-radical')?.textContent,
     caret: (() => {
       const selection = getSelection();
       if (!selection?.focusNode) return -1;
@@ -545,7 +547,13 @@ await scenario('typed math aliases open editable templates', async () => {
       return range.toString().length;
     })(),
   }));
-  check('typed sqrt opens a canonical template with the caret inside', state.text?.startsWith('sqrt()') === true && state.caret === 5, JSON.stringify(state));
+  check('typed sqrt opens a visual template with the caret inside', state.text?.startsWith('sqrt()') === true && state.caret === 5 && state.previewDisplay === 'inline' && state.radical === '√', JSON.stringify(state));
+  await page.keyboard.type('x');
+  const filled = await page.evaluate(() => ({
+    text: document.querySelector<HTMLElement>('.math-source')?.textContent,
+    root: document.querySelector('.math-root') !== null,
+  }));
+  check('typing after sqrt stays inside the radical', filled.text?.startsWith('sqrt(x)') === true && filled.root, JSON.stringify(filled));
 });
 
 await scenario('add menu supports keyboard navigation and exposes its relationship', async () => {

@@ -2240,6 +2240,8 @@ function selectionAsText(): string | null {
   return parts.length ? parts.join('\n') : null;
 }
 
+let pendingTemplateCaret: { line: number; offset: number } | null = null;
+
 function insertTemplate(template: MathTemplate): void {
   const result = templateInsertion(template, selectionAsText() ?? '');
   insertStatements(result.text);
@@ -2259,7 +2261,10 @@ function openTypedTemplate(): boolean {
   eq.text = eq.text.slice(0, start) + result.text + eq.text.slice(pos.offset);
   recompileAll();
   renderAll();
-  setCaret(pos.line, start + result.cursorOffset);
+  const restoreTemplateCaret = () => { listEl.focus(); setCaret(pos.line, start + result.cursorOffset); };
+  pendingTemplateCaret = { line: pos.line, offset: start + result.cursorOffset };
+  restoreTemplateCaret();
+  queueMicrotask(restoreTemplateCaret);
   return true;
 }
 
@@ -2273,6 +2278,14 @@ function openTypedTemplate(): boolean {
 const fromWidget = (e: Event): boolean =>
   e.target instanceof Element && e.target.closest('.eq-widget') !== null;
 let handledEnterAt = 0;
+
+document.addEventListener('keydown', e => {
+  if (!pendingTemplateCaret || e.ctrlKey || e.metaKey || e.altKey || e.key.length !== 1) return;
+  e.preventDefault();
+  setCaret(pendingTemplateCaret.line, pendingTemplateCaret.offset);
+  pendingTemplateCaret = null;
+  insertStatements(e.key);
+}, true);
 
 // First beforeinput listener: route undo/redo to our stack and capture the
 // pre-edit caret for the snapshot the upcoming 'input' event will push.
@@ -2357,6 +2370,10 @@ listEl.addEventListener('pointerdown', e => {
 // engines skip the historyUndo beforeinput when their native stack is empty.
 listEl.addEventListener('keydown', e => {
   if (fromWidget(e)) return; // let bound inputs handle their own keys natively
+  if (pendingTemplateCaret && !e.ctrlKey && !e.metaKey && !e.altKey && e.key.length === 1) {
+    setCaret(pendingTemplateCaret.line, pendingTemplateCaret.offset);
+    pendingTemplateCaret = null;
+  }
   if (e.key === 'Escape' && !autocomplete.hidden) { hideAutocomplete(); e.preventDefault(); return; }
   if (!autocomplete.hidden && autocompleteState && (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Tab' || e.key === 'Enter')) {
     const suggestions = [...autocomplete.querySelectorAll<HTMLButtonElement>('.function-suggestion')];
