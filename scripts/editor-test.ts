@@ -535,13 +535,14 @@ await scenario('header popovers do not overlap and close with Escape', async () 
   const exclusive = await page.evaluate(() => ({
     settings: document.querySelector<HTMLElement>('.graph-settings-popover')?.hidden,
     settingsPopup: document.querySelector('#graph-settings')?.getAttribute('aria-haspopup'),
+    close: document.querySelector<HTMLButtonElement>('.graph-settings-close')?.getAttribute('aria-label'),
   }));
   await page.keyboard.press('Escape');
   const closed = await page.evaluate(() => ({
     settings: document.querySelector<HTMLElement>('.graph-settings-popover')?.hidden,
     focused: document.activeElement?.id,
   }));
-  check('graph settings opens as a dialog', exclusive.settings === false && exclusive.settingsPopup === 'dialog' && settingsFocus === 'Grid', JSON.stringify({ ...exclusive, settingsFocus }));
+  check('graph settings opens as a dialog', exclusive.settings === false && exclusive.settingsPopup === 'dialog' && exclusive.close === 'Close graph settings' && settingsFocus === 'Grid', JSON.stringify({ ...exclusive, settingsFocus }));
   check('graph settings closes with Escape', closed.settings === true && closed.focused === 'graph-settings', JSON.stringify(closed));
 });
 

@@ -80,6 +80,7 @@ import { makeButton } from '../components/button/button.ts';
 import { initSidebar } from '../components/sidebar/sidebar.ts';
 import { initOnboarding } from '../components/onboarding.ts';
 import { makeSymbolKeyboard } from '../components/symbol-keyboard.ts';
+import { makeIcon } from '../components/icon.ts';
 import { renderMathPreview } from '../components/math-display.ts';
 import { DEFAULT_GRAPH_SETTINGS, loadGraphSettings, saveGraphSettings, type GraphSettings } from '../components/graph-settings.ts';
 import { getFunctionCompletions } from '../components/function-autocomplete.ts';
@@ -3378,7 +3379,9 @@ if (settingsButton) {
   settings.setAttribute('role', 'dialog'); settings.setAttribute('aria-label', 'Graph settings');
   settingsButton.setAttribute('aria-haspopup', 'dialog');
   settingsButton.setAttribute('aria-controls', settings.id);
-  const title = document.createElement('strong'); title.id = 'graph-settings-title'; title.textContent = 'Graph settings'; settings.setAttribute('aria-labelledby', title.id); settings.append(title);
+  const heading = document.createElement('div'); heading.className = 'graph-settings-heading';
+  const title = document.createElement('strong'); title.id = 'graph-settings-title'; title.textContent = 'Graph settings'; settings.setAttribute('aria-labelledby', title.id);
+  const close = makeButton('', 'Close graph settings', () => { settings.hidden = true; settingsButton.setAttribute('aria-expanded', 'false'); settingsButton.focus(); }, 'graph-settings-close'); close.append(makeIcon('close')); heading.append(title, close); settings.append(heading);
   const addSetting = (key: 'grid' | 'axes' | 'labels' | 'points' | 'snap', label: string) => {
     const row = document.createElement('label'); row.className = 'graph-setting';
     const input = document.createElement('input'); input.type = 'checkbox'; input.checked = graphSettings[key]; input.setAttribute('aria-label', label); input.addEventListener('change', () => { graphSettings = { ...graphSettings, [key]: input.checked }; saveGraphSettings(graphSettings); requestRender(); });
@@ -3399,7 +3402,7 @@ if (settingsButton) {
   settingsButton.addEventListener('click', () => {
     settings.hidden = !settings.hidden;
     settingsButton.setAttribute('aria-expanded', String(!settings.hidden));
-    if (!settings.hidden) settings.querySelector<HTMLElement>('input, select, button')?.focus();
+    if (!settings.hidden) settings.querySelector<HTMLElement>('input, select, button:not(.graph-settings-close)')?.focus();
   });
   settingsButton.setAttribute('aria-expanded', 'false');
   document.addEventListener('keydown', event => {
