@@ -423,6 +423,7 @@ html, body {
 .eq-levels:hover { color: var(--muted-hover); border-color: var(--panel-border); }
 /* "on" inverts against the page so it reads in both themes. */
 .eq-levels.on { background: var(--accent); border-color: var(--accent); color: var(--page-bg); }
+.eq-levels:focus-visible, .eq-toggle:focus-visible, .eq-curve-toggle input:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
 .eq-curve {
   display: flex;
   align-items: center;

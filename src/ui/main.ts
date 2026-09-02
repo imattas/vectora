@@ -1752,6 +1752,7 @@ function makeLevelsBtn(eq: Equation): HTMLButtonElement {
   btn.className = 'eq-widget eq-levels';
   btn.contentEditable = 'false';
   btn.textContent = 'all levels';
+  btn.setAttribute('aria-label', 'Draw all levels');
   btn.title = 'Draw the whole family of level sets (topographic map)';
   setLevelsBtnState(btn, !!eq.showLevels);
   btn.addEventListener('click', () => {
@@ -1776,6 +1777,7 @@ function makeCurveUI(eq: Equation): CurveUI {
     toggle.title = title;
     const check = document.createElement('input');
     check.type = 'checkbox';
+    check.setAttribute('aria-label', title);
     toggle.append(check, glyph);
     return [toggle, check];
   };
@@ -1988,6 +1990,8 @@ function reconcile() {
       const { box, btn } = eq.toggleUI;
       btn.textContent = toggle.label;
       btn.title = toggle.title;
+      btn.setAttribute('aria-label', toggle.title);
+      btn.setAttribute('aria-pressed', String(toggle.on));
       btn.classList.toggle('on', toggle.on);
       wanted.push(box);
     }
