@@ -537,6 +537,11 @@ await scenario('header popovers do not overlap and close with Escape', async () 
     settingsPopup: document.querySelector('#graph-settings')?.getAttribute('aria-haspopup'),
     close: document.querySelector<HTMLButtonElement>('.graph-settings-close')?.getAttribute('aria-label'),
   }));
+  await page.locator('#graph-settings svg').click();
+  const toggledClosed = await page.evaluate(() => document.querySelector<HTMLElement>('.graph-settings-popover')?.hidden);
+  await page.locator('#graph-settings svg').click();
+  const toggledOpen = await page.evaluate(() => document.querySelector<HTMLElement>('.graph-settings-popover')?.hidden === false);
+  check('graph settings toggles from its SVG target', toggledClosed === true && toggledOpen === true, JSON.stringify({ toggledClosed, toggledOpen }));
   await page.keyboard.press('Escape');
   const closed = await page.evaluate(() => ({
     settings: document.querySelector<HTMLElement>('.graph-settings-popover')?.hidden,

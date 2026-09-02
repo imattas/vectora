@@ -3382,7 +3382,9 @@ if (settingsButton) {
   const heading = document.createElement('div'); heading.className = 'graph-settings-heading';
   const title = document.createElement('strong'); title.id = 'graph-settings-title'; title.textContent = 'Graph settings'; settings.setAttribute('aria-labelledby', title.id);
   const closeSettings = () => { settings.hidden = true; settingsButton.setAttribute('aria-expanded', 'false'); settingsButton.focus(); };
-  const close = makeButton('', 'Close graph settings', closeSettings, 'graph-settings-close'); close.append(makeIcon('close')); heading.append(title, close); settings.append(heading);
+  const close = makeButton('', 'Close graph settings', closeSettings, 'graph-settings-close');
+  close.addEventListener('pointerdown', closeSettings);
+  close.append(makeIcon('close')); heading.append(title, close); settings.append(heading);
   let drag: { id: number; x: number; y: number; left: number; top: number } | null = null;
   const clampPosition = (left: number, top: number) => ({
     left: Math.max(8, Math.min(left, window.innerWidth - settings.offsetWidth - 8)),
@@ -3438,7 +3440,10 @@ if (settingsButton) {
     settingsButton.focus();
     event.preventDefault();
   });
-  document.addEventListener('pointerdown', event => { if (!settings.hidden && event.target instanceof Node && !settings.contains(event.target) && event.target !== settingsButton) { settings.hidden = true; settingsButton.setAttribute('aria-expanded', 'false'); } });
+  document.addEventListener('pointerdown', event => {
+    if (!settings.hidden && event.target instanceof Node
+      && !settings.contains(event.target) && !settingsButton.contains(event.target)) closeSettings();
+  });
   window.addEventListener('resize', () => {
     if (settings.hidden) return;
     const rect = settingsButton.getBoundingClientRect();
