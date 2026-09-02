@@ -108,6 +108,9 @@ const browser = await chromium.launch({
   args: ['--enable-unsafe-swiftshader'],
 });
 const page = await browser.newPage({ viewport: { width: 1000, height: 700 } });
+const runtimeErrors: string[] = [];
+page.on('pageerror', error => runtimeErrors.push(`pageerror: ${error.message}`));
+page.on('console', message => { if (message.type() === 'error') runtimeErrors.push(`console: ${message.text()}`); });
 
 // --- events originating in slider widgets must not edit the document ---
 
@@ -543,6 +546,10 @@ await scenario('graph canvas supports keyboard navigation', async () => {
     focused: document.activeElement?.id === 'gl',
   }));
   check('graph canvas supports keyboard navigation', state.tabIndex === '0' && state.role === 'img' && state.focused && afterZoom < before, JSON.stringify({ before, afterZoom, ...state }));
+});
+
+await scenario('browser runtime stays error-free', async () => {
+  check('browser runtime stays error-free', runtimeErrors.length === 0, runtimeErrors.slice(0, 3).join(' | '));
 });
 
 await browser.close();
