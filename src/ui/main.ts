@@ -128,6 +128,7 @@ interface Equation {
   /** Cached system solutions for the box and constants they were solved at. */
   sysCache?: { text: string; env: string; lo: number[]; hi: number[]; pts: number[][] };
   colorUI?: HTMLElement;
+  colorTriggerUI?: HTMLButtonElement;
   optionsUI?: HTMLElement;
 }
 
@@ -1856,12 +1857,13 @@ function makeColorUI(eq: Equation): HTMLElement {
   const picker = makeColorPicker(colors, eq.colorIndex, index => {
     pushUndo(`color:${eq.id}`); eq.colorIndex = index; reconcile(); requestRender();
   }, () => {
-    // The gutter is a pseudo-element rather than a focusable control. Return
-    // focus to the editor host after Escape/selection so keyboard users do not
-    // remain focused on the now-hidden picker.
-    listEl.focus();
+    // Return focus to the control that opened the picker; the editor fallback
+    // covers legacy pointer-only gutter activation and disconnected rows.
+    if (eq.colorTriggerUI?.isConnected) eq.colorTriggerUI.focus();
+    else listEl.focus();
   });
   picker.classList.add('eq-color-widget', 'eq-widget');
+  picker.id = `color-picker-${eq.id}`;
   return picker;
 }
 
@@ -1923,6 +1925,21 @@ function reconcile() {
     const wanted: HTMLElement[] = [];
     if (!eq.def && !eq.comment) {
       eq.colorUI ??= makeColorUI(eq);
+      eq.colorTriggerUI ??= (() => {
+        const trigger = document.createElement('button');
+        trigger.type = 'button';
+        trigger.className = 'row-color-trigger eq-widget';
+        trigger.contentEditable = 'false';
+        trigger.setAttribute('aria-haspopup', 'dialog');
+        trigger.addEventListener('pointerdown', event => event.stopPropagation());
+        trigger.addEventListener('click', event => { event.stopPropagation(); gutterAct(eq); });
+        return trigger;
+      })();
+      eq.colorTriggerUI.style.background = cssColor(theme.palette[eq.colorIndex]);
+      eq.colorTriggerUI.title = 'Choose plot color';
+      eq.colorTriggerUI.setAttribute('aria-label', 'Choose plot color');
+      eq.colorTriggerUI.setAttribute('aria-controls', eq.colorUI.id);
+      line.append(eq.colorTriggerUI);
       eq.optionsUI = makeRowOptionsUI(eq);
       line.querySelector('.row-options-wrap')?.remove();
       line.append(eq.optionsUI);

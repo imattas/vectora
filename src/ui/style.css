@@ -338,7 +338,8 @@ html, body {
 .eq-line.hidden-expression { opacity: .48; }
 .eq-color-widget { position: relative; display: block; margin-left: 28px; height: 0; vertical-align: top; }
 .row-color-trigger, .row-options-trigger { position: absolute; top: -27px; border: 0; cursor: pointer; }
-.row-color-trigger { left: -22px; width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--dot-border); }
+.row-color-trigger { left: 4px; top: 8px; width: 15px; height: 15px; padding: 0; border-radius: 50%; border: 1px solid var(--dot-border); cursor: pointer; }
+.row-color-trigger:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .row-options-trigger { right: 2px; top: 50%; width: 24px; height: 24px; transform: translateY(-50%); background: transparent; color: var(--muted); font-size: 16px; opacity: 0; transition: opacity .12s; }
 .row-options-trigger svg { width: 16px; height: 16px; display: block; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .row-options-trigger:hover { color: var(--text); }

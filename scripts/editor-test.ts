@@ -309,10 +309,21 @@ await scenario('color picker supports keyboard navigation and focus return', asy
   await page.keyboard.press('Escape');
   const closed = await page.evaluate(() => ({
     hidden: document.querySelector<HTMLElement>('.color-picker')?.hidden,
-    activeEditor: document.activeElement?.id === 'equations',
+    activeColorTrigger: document.activeElement?.classList.contains('row-color-trigger'),
+    triggerCount: document.querySelectorAll('.row-color-trigger').length,
+    triggerConnected: document.querySelector<HTMLButtonElement>('.row-color-trigger')?.isConnected,
   }));
   check('color picker opens on a focused swatch', opened.hidden === false && opened.active === 'color-swatch', JSON.stringify(opened));
-  check('color picker Escape closes and returns focus', closed.hidden === true && closed.activeEditor, JSON.stringify(closed));
+  check('color picker Escape closes and returns focus', closed.hidden === true && closed.activeColorTrigger === true, JSON.stringify(closed));
+  await page.locator('.row-color-trigger').first().focus();
+  await page.keyboard.press('Enter');
+  const keyboardColor = await page.evaluate(() => ({
+    hidden: document.querySelector<HTMLElement>('.color-picker')?.hidden,
+    active: document.activeElement?.className,
+  }));
+  await page.keyboard.press('Escape');
+  const restoredColor = await page.evaluate(() => document.activeElement?.classList.contains('row-color-trigger'));
+  check('color picker opens from its keyboard button', keyboardColor.hidden === false && keyboardColor.active === 'color-swatch' && restoredColor === true, JSON.stringify({ keyboardColor, restoredColor }));
 });
 
 await scenario('complex plots compile through the WebGL renderer', async () => {
