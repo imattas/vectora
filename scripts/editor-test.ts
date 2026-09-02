@@ -358,7 +358,13 @@ await scenario('parametric 3D scenes auto-frame with SVG controls', async () => 
   await page.locator('#home-view').click();
   await page.waitForTimeout(300);
   const resetRadius = await page.evaluate(() => (globalThis as { __eq?: { camera?: { radius: number } } }).__eq?.camera?.radius ?? Infinity);
-  check('parametric 3D scenes auto-frame with SVG controls', state.radius < 6 && knot.radius > 0 && resetRadius < 6 && state.errors.length === 0 && knot.errors.length === 0 && state.svgControls === 8 && state.controlsRole === 'group', JSON.stringify({ ...state, knot, resetRadius }));
+  await page.locator('#examples > summary').click();
+  const parametricExamples = page.locator('#examples details').filter({ hasText: 'parametric 3d' }).first();
+  await parametricExamples.locator(':scope > summary').click();
+  await parametricExamples.locator('.ex-item').filter({ hasText: 'parametric surface' }).click();
+  await page.waitForTimeout(300);
+  const exampleErrors = await page.locator('.eq-error').allTextContents();
+  check('parametric 3D scenes auto-frame with SVG controls', state.radius < 6 && knot.radius > 0 && resetRadius < 6 && state.errors.length === 0 && knot.errors.length === 0 && exampleErrors.length === 0 && state.svgControls === 8 && state.controlsRole === 'group', JSON.stringify({ ...state, knot, resetRadius, exampleErrors }));
 });
 
 await scenario('row action menus expose state and restore focus', async () => {

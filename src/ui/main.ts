@@ -2628,6 +2628,7 @@ const EXAMPLES: Array<[string, Array<[string, string]>]> = [
     ['helix', '(2cos(6pi u), 2sin(6pi u), 4u - 2)'],
     ['torus', '(cos(2pi u)(2+cos(2pi v)), sin(2pi u)(2+cos(2pi v)), sin(2pi v))'],
     ['sphere (u,v)', '(2sin(pi v)cos(2pi u), 2sin(pi v)sin(2pi u), 2cos(pi v))'],
+    ['parametric surface', '(u, v, sin(2pi u))'],
     ['breathing torus', '(cos(2pi u)(2+cos(2pi v+t)), sin(2pi u)(2+cos(2pi v+t)), sin(2pi v+t))'],
   ]],
   ['knots', [
