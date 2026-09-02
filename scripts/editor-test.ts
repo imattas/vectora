@@ -564,6 +564,15 @@ await scenario('graph canvas supports keyboard navigation', async () => {
   check('graph canvas supports keyboard navigation', state.tabIndex === '0' && state.role === 'img' && state.shortcuts?.includes('Home') === true && state.overlayHidden === 'true' && state.focused && afterZoom < before, JSON.stringify({ before, afterZoom, ...state }));
 });
 
+await scenario('SVG export creates a named download', async () => {
+  await page.goto(ORIGIN + '/#y%3Dsin(x)');
+  const download = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Save the current graph as an SVG file' }).click(),
+  ]).then(([result]) => result);
+  check('SVG export creates a named download', download.suggestedFilename() === 'vectora-graph.svg', download.suggestedFilename());
+});
+
 await scenario('browser runtime stays error-free', async () => {
   check('browser runtime stays error-free', runtimeErrors.length === 0, runtimeErrors.slice(0, 3).join(' | '));
 });
