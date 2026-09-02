@@ -3485,6 +3485,13 @@ function clearExpressions() {
 }
 function saveSvg() {
   const width = canvas.clientWidth, height = canvas.clientHeight;
+  if (contextLost) {
+    if (renderStatus) {
+      renderStatus.textContent = 'SVG export is paused while graphics recover.';
+      renderStatus.hidden = false;
+    }
+    return;
+  }
   if (!(width > 0 && height > 0 && canvas.width > 0 && canvas.height > 0)) return;
   const escape = (value: string) => value.replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[ch]!));
   const composite = document.createElement('canvas');
