@@ -78,6 +78,7 @@ export function glslVec3([r, g, b]: RGB): string {
 
 const STORAGE_KEY = 'eq-theme';
 const listeners = new Set<() => void>();
+export type ThemePreference = 'system' | 'light' | 'dark';
 
 /** Register a callback fired after every theme change (re-render, re-decorate). */
 export function onThemeChange(cb: () => void): void {
@@ -127,4 +128,20 @@ export function initTheme(): void {
   window.addEventListener('storage', event => {
     if (event.key === STORAGE_KEY || event.key === null) applyStored(event.key === STORAGE_KEY ? event.newValue : readStored());
   });
+}
+
+export function getThemePreference(): ThemePreference {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    return stored === 'light' || stored === 'dark' ? stored : 'system';
+  } catch { return 'system'; }
+}
+
+export function setThemePreference(preference: ThemePreference): void {
+  try {
+    if (preference === 'system') localStorage.removeItem(STORAGE_KEY);
+    else localStorage.setItem(STORAGE_KEY, preference);
+  } catch { /* private mode / disabled storage */ }
+  const systemDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
+  set(preference === 'system' ? (systemDark ? 'dark' : 'light') : preference);
 }

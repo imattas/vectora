@@ -72,7 +72,7 @@ import {
 } from '../components/graph/render2d.ts';
 import { type Camera3D, Renderer3D, type Scene3D, cameraBoxR, drawLabels3D } from '../components/graph/render3d.ts';
 import { initPanelResize } from '../components/panel-resize.ts';
-import { initTheme, onThemeChange, theme, toggleTheme } from '../components/theme.ts';
+import { getThemePreference, initTheme, onThemeChange, setThemePreference, theme, toggleTheme, type ThemePreference } from '../components/theme.ts';
 import { makeColorPicker } from '../components/color-picker/color-picker.ts';
 import { makeRowOptions } from '../components/expression-row/expression-row.ts';
 import { makeAddMenu } from '../components/sidebar/add-menu.ts';
@@ -215,6 +215,7 @@ let curveHover: { eq: Equation; point: { x: number; y: number } } | null = null;
 const geometryReadouts = document.getElementById('geometry-readouts')!;
 let graphSettings: GraphSettings = loadGraphSettings();
 let syncGraphSettingsUi: (() => void) | null = null;
+let syncThemePreferenceUi: (() => void) | null = null;
 
 const view: View2D = { cx: 0, cy: 0, upp: 0.01 };
 const camera: Camera3D = { target: [0, 0, 0], radius: 14, theta: -Math.PI / 3, phi: Math.PI / 5.5 };
@@ -3401,6 +3402,7 @@ initTheme();
 // Color dots and every WebGL pass read `theme` live; redraw both on a switch.
 onThemeChange(() => {
   syncThemeToggle();
+  syncThemePreferenceUi?.();
   reconcile();
   requestRender();
 });
@@ -3426,7 +3428,7 @@ if (settingsButton) {
     mainTab.setAttribute('aria-selected', String(!settingsActive));
     settingsTab.setAttribute('aria-selected', String(settingsActive));
     settingsButton.setAttribute('aria-expanded', String(settingsActive));
-    if (focus) (settingsActive ? settings : mainTab).querySelector<HTMLElement>('input, select, button')?.focus();
+    if (focus) (settingsActive ? settings : mainTab).querySelector<HTMLElement>('.settings-category input, .settings-category select, .settings-category button')?.focus();
   };
   const closeSettings = () => { selectTab(false); mainTab.focus(); };
   const close = makeButton('', 'Close graph settings', closeSettings, 'graph-settings-close');
@@ -3447,6 +3449,13 @@ if (settingsButton) {
     row.append(input, document.createTextNode(label)); target.append(row);
   };
   addSetting('grid', 'Grid', appearance.body); addSetting('axes', 'Axes', appearance.body); addSetting('labels', 'Axis labels', appearance.body); addSetting('points', 'Points and markers', appearance.body);
+  const themeLabel = document.createElement('label'); themeLabel.className = 'graph-setting'; themeLabel.textContent = 'Theme';
+  const themeSelect = document.createElement('select'); themeSelect.setAttribute('aria-label', 'Theme');
+  for (const [value, label] of [['system', 'System'], ['light', 'Light'], ['dark', 'Dark']] as const) {
+    const option = document.createElement('option'); option.value = value; option.textContent = label; option.selected = getThemePreference() === value; themeSelect.append(option);
+  }
+  themeSelect.addEventListener('change', () => setThemePreference(themeSelect.value as ThemePreference));
+  themeLabel.append(themeSelect); appearance.body.prepend(themeLabel);
   addSetting('snap', 'Snap dragged points to grid', interaction.body);
   const angleLabel = document.createElement('label'); angleLabel.className = 'graph-setting'; angleLabel.textContent = 'Angle units';
   const angleSelect = document.createElement('select'); angleSelect.setAttribute('aria-label', 'Angle units');
@@ -3462,6 +3471,7 @@ if (settingsButton) {
   const reset = makeButton('Reset', 'Reset graph settings', () => { graphSettings = { ...DEFAULT_GRAPH_SETTINGS }; saveGraphSettings(graphSettings); settings.querySelectorAll<HTMLInputElement>('input').forEach((input, i) => { input.checked = [graphSettings.grid, graphSettings.axes, graphSettings.labels, graphSettings.points, graphSettings.snap][i]; }); angleSelect.value = graphSettings.angleUnit; requestRender(); }, 'graph-settings-reset');
   settings.append(reset); panel.append(settings);
   syncGraphSettingsUi = () => { settings.querySelectorAll<HTMLInputElement>('input').forEach((input, i) => { input.checked = [graphSettings.grid, graphSettings.axes, graphSettings.labels, graphSettings.points, graphSettings.snap][i]; }); angleSelect.value = graphSettings.angleUnit; };
+  syncThemePreferenceUi = () => { themeSelect.value = getThemePreference(); };
   mainTab.addEventListener('click', () => selectTab(false, true));
   settingsTab.addEventListener('click', () => selectTab(true, true));
   settingsButton.addEventListener('click', () => selectTab(true, true));

@@ -180,6 +180,9 @@ html, body {
 .panel-tab:hover, .panel-tab:focus-visible { background: var(--surface-soft); color: var(--text); outline: 2px solid var(--focus-ring); outline-offset: 1px; }
 .panel-tab.active, .panel-tab[aria-selected="true"] { background: var(--surface-soft); border-color: var(--panel-border); color: var(--text); }
 #panel[data-tab="settings"] > :not(#panel-header):not(#panel-resize):not(.panel-tabs):not(.graph-settings-panel) { display: none; }
+#panel[data-tab="main"] > .graph-settings-panel,
+#panel[data-tab="main"] .settings-category { display: none !important; }
+#panel[data-tab="settings"] > .graph-settings-panel:not([hidden]) { display: grid; }
 .graph-settings-panel { display: grid; gap: 10px; padding: 12px 2px; color: var(--text); font-size: 12px; }
 .graph-settings-heading { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
 .settings-category { border-top: 1px solid var(--divider); }

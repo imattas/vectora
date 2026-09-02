@@ -572,16 +572,18 @@ await scenario('sidebar tabs switch between main and graph settings', async () =
     panel: document.querySelector<HTMLElement>('#panel')?.dataset.tab,
     selected: document.querySelector('#settings-tab')?.getAttribute('aria-selected'),
     close: document.querySelector<HTMLButtonElement>('.graph-settings-close')?.getAttribute('aria-label'),
+    themes: document.querySelectorAll('#settings-panel select[aria-label="Theme"] option').length,
   }));
   await page.locator('#main-tab').click();
   const mainOpen = await page.evaluate(() => ({
     panel: document.querySelector<HTMLElement>('#panel')?.dataset.tab,
     selected: document.querySelector('#main-tab')?.getAttribute('aria-selected'),
     settingsHidden: document.querySelector<HTMLElement>('#settings-panel')?.hidden,
+    settingsDisplay: getComputedStyle(document.querySelector<HTMLElement>('#settings-panel')!).display,
   }));
   await page.keyboard.press('Escape');
-  check('settings tab exposes styled settings controls', settingsOpen.panel === 'settings' && settingsOpen.selected === 'true' && settingsOpen.close === 'Close graph settings' && settingsFocus === 'Close graph settings', JSON.stringify({ ...settingsOpen, settingsFocus }));
-  check('main tab restores the expression view', mainOpen.panel === 'main' && mainOpen.selected === 'true' && mainOpen.settingsHidden === true, JSON.stringify(mainOpen));
+  check('settings tab exposes styled settings controls and themes', settingsOpen.panel === 'settings' && settingsOpen.selected === 'true' && settingsOpen.close === 'Close graph settings' && settingsOpen.themes === 3 && settingsFocus === 'Theme', JSON.stringify({ ...settingsOpen, settingsFocus }));
+  check('main tab hides every settings control', mainOpen.panel === 'main' && mainOpen.selected === 'true' && mainOpen.settingsHidden === true && mainOpen.settingsDisplay === 'none', JSON.stringify(mainOpen));
   await page.locator('#graph-settings').click();
   await page.locator('.graph-settings-close').click();
   const clickedClose = await page.evaluate(() => ({
@@ -592,7 +594,7 @@ await scenario('sidebar tabs switch between main and graph settings', async () =
   await page.locator('#settings-tab').click();
   const heading = page.locator('.graph-settings-heading');
   const panelBounds = await page.locator('#settings-panel').boundingBox();
-  const selectStyle = await page.locator('#settings-panel select').evaluate(el => getComputedStyle(el).appearance);
+  const selectStyle = await page.locator('#settings-panel select[aria-label="Angle units"]').evaluate(el => getComputedStyle(el).appearance);
   check('settings tab uses the sidebar layout and styled controls', !!panelBounds && selectStyle === 'none', JSON.stringify({ panelBounds, selectStyle }));
   await page.locator('.settings-category').nth(2).locator('summary').click();
   const categories = await page.locator('.settings-category').evaluateAll(nodes => nodes.map(node => (node as HTMLDetailsElement).open));
