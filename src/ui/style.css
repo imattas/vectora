@@ -175,7 +175,7 @@ html, body {
 #panel-header .header-actions { margin-left: auto; display: flex; align-items: center; gap: 2px; }
 #panel-header .header-actions button { width: 28px; height: 28px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--muted); cursor: pointer; }
 #panel-header .header-actions button:hover, #panel-header .header-actions button:focus-visible { background: var(--surface-soft); color: var(--text); outline: 2px solid var(--focus-ring); outline-offset: 1px; }
-.graph-settings-popover { position: fixed; z-index: 25; top: 44px; right: 10px; display: grid; min-width: 176px; gap: 8px; padding: 10px; border: 1px solid var(--panel-border); border-radius: 7px; background: var(--panel-bg); color: var(--text); box-shadow: 0 5px 18px var(--panel-shadow); font-size: 12px; }
+.graph-settings-popover { position: fixed; z-index: 100; top: 44px; right: 10px; display: grid; min-width: 190px; gap: 8px; padding: 10px; border: 1px solid var(--panel-border); border-radius: 8px; background: var(--panel-bg); color: var(--text); box-shadow: 0 8px 28px var(--panel-shadow); font-size: 12px; }
 .graph-settings-heading { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
 .graph-settings-close { width: 22px; height: 22px; padding: 3px; border: 0; border-radius: 4px; background: transparent; color: var(--muted); cursor: pointer; }
 .graph-settings-close:hover, .graph-settings-close:focus-visible { background: var(--surface-soft); color: var(--text); outline: 2px solid var(--focus-ring); outline-offset: 1px; }
@@ -577,6 +577,8 @@ html, body {
   #panel::before { content: ''; position: absolute; z-index: 1; top: 6px; left: 50%; width: 38px; height: 4px; transform: translateX(-50%); border-radius: 999px; background: var(--panel-border); }
   #panel-header { touch-action: none; }
   #panel.mobile-collapsed { transform: translateY(calc(100% - 48px)); }
+  #equations { flex: 1 1 auto; min-height: 120px; }
+  #geometry-readouts { height: 96px; flex: none; }
   #gl, #overlay {
     left: 0;
     width: 100%;
@@ -597,14 +599,17 @@ html, body {
 .symbol-keyboard-wrap { position: relative; display: block; }
 .symbol-keyboard-trigger { display: flex; align-items: center; justify-content: center; width: 100%; margin: 0; padding: 0 8px; font-size: 14px; }
 .symbol-keyboard-trigger svg, .onboarding-close svg { width: 17px; height: 17px; display: block; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.symbol-keyboard-popover { position: fixed; z-index: 30; left: 10px; bottom: 45px; width: min(300px, calc(var(--sidebar-width) - 20px), calc(100vw - 58px)); max-height: min(52vh, 360px); overflow-y: auto; padding: 10px; border: 1px solid var(--panel-border); border-radius: 7px 7px 0 0; background: var(--panel-bg); box-shadow: 0 -8px 24px var(--panel-shadow); scrollbar-width: none; }
-.symbol-keyboard-title { margin-bottom: 7px; color: var(--text); font-size: 12px; font-weight: 650; }
+.symbol-keyboard-popover { position: fixed; z-index: 100; left: 10px; bottom: 45px; width: min(328px, calc(var(--sidebar-width) - 20px), calc(100vw - 20px)); max-height: min(62vh, 470px); overflow-y: auto; padding: 12px; border: 1px solid var(--panel-border); border-radius: 10px 10px 0 0; background: var(--panel-bg); box-shadow: 0 -8px 28px var(--panel-shadow); scrollbar-width: none; }
+.symbol-keyboard-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.symbol-keyboard-title { color: var(--text); font-size: 12px; font-weight: 650; }
 .symbol-keyboard-group { margin: 8px 0 4px; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; }
-.symbol-keyboard-row { display: flex; flex-wrap: wrap; gap: 4px; }
-.symbol-key { width: 26px; height: 26px; padding: 0; border: 1px solid var(--panel-border); border-radius: 4px; background: transparent; color: var(--text); cursor: pointer; font-size: 15px; }
+.symbol-keyboard-row { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; }
+.symbol-key { width: 100%; min-width: 0; height: 34px; padding: 0 3px; border: 1px solid var(--panel-border); border-radius: 5px; background: var(--surface-soft); color: var(--text); cursor: pointer; font: 14px ui-sans-serif, system-ui; }
 .symbol-key:hover { border-color: var(--accent); background: var(--eq-focus); }
 .symbol-key:focus-visible { border-color: var(--accent); background: var(--eq-focus); outline: 2px solid var(--focus-ring); outline-offset: -1px; }
-.symbol-keyboard-close { margin-top: 10px; padding: 3px 7px; border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 11px; }
+.symbol-keyboard-close { width: 28px; height: 28px; display: grid; place-items: center; padding: 5px; border: 0; border-radius: 5px; background: transparent; color: var(--muted); cursor: pointer; }
+.symbol-keyboard-close svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.symbol-keyboard-close:hover, .symbol-keyboard-close:focus-visible { background: var(--surface-soft); color: var(--text); outline: 2px solid var(--focus-ring); outline-offset: 1px; }
 #keyboard-dock { flex: none; margin-top: auto; padding-top: 10px; border-top: 1px solid var(--divider); }
 #keyboard-dock::-webkit-scrollbar, .symbol-keyboard-popover::-webkit-scrollbar { display: none; width: 0; height: 0; }
 #geometry-readouts { box-sizing: border-box; height: 112px; margin: 8px 0; padding: 8px; overflow-y: auto; border: 1px solid var(--panel-border); border-radius: 6px; background: var(--eq-focus); font: 12px ui-monospace, monospace; color: var(--muted); scrollbar-width: none; }

@@ -3402,7 +3402,14 @@ if (settingsButton) {
   settingsButton.addEventListener('click', () => {
     settings.hidden = !settings.hidden;
     settingsButton.setAttribute('aria-expanded', String(!settings.hidden));
-    if (!settings.hidden) settings.querySelector<HTMLElement>('input, select, button:not(.graph-settings-close)')?.focus();
+    if (!settings.hidden) {
+      const rect = settingsButton.getBoundingClientRect();
+      const width = settings.offsetWidth || 210;
+      settings.style.top = `${Math.max(8, Math.min(rect.bottom + 8, window.innerHeight - settings.offsetHeight - 8))}px`;
+      settings.style.left = `${Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8))}px`;
+      settings.style.right = 'auto';
+      settings.querySelector<HTMLElement>('input, select, button:not(.graph-settings-close)')?.focus();
+    }
   });
   settingsButton.setAttribute('aria-expanded', 'false');
   document.addEventListener('keydown', event => {
@@ -3414,6 +3421,14 @@ if (settingsButton) {
     event.preventDefault();
   });
   document.addEventListener('pointerdown', event => { if (!settings.hidden && event.target instanceof Node && !settings.contains(event.target) && event.target !== settingsButton) { settings.hidden = true; settingsButton.setAttribute('aria-expanded', 'false'); } });
+  window.addEventListener('resize', () => {
+    if (settings.hidden) return;
+    const rect = settingsButton.getBoundingClientRect();
+    const width = settings.offsetWidth || 210;
+    settings.style.top = `${Math.max(8, Math.min(rect.bottom + 8, window.innerHeight - settings.offsetHeight - 8))}px`;
+    settings.style.left = `${Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8))}px`;
+    settings.style.right = 'auto';
+  });
 }
 
 // Drag the strip on the sidebar edge to resize it (the width
@@ -3485,21 +3500,16 @@ function clearExpressions() {
 }
 function saveSvg() {
   const width = canvas.clientWidth, height = canvas.clientHeight;
-  if (contextLost) {
-    if (renderStatus) {
-      renderStatus.textContent = 'SVG export is paused while graphics recover.';
-      renderStatus.hidden = false;
-    }
-    return;
-  }
   if (!(width > 0 && height > 0 && canvas.width > 0 && canvas.height > 0)) return;
   const escape = (value: string) => value.replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[ch]!));
   const composite = document.createElement('canvas');
   composite.width = canvas.width; composite.height = canvas.height;
   const context = composite.getContext('2d');
   if (!context) return;
-  gl.finish();
-  context.drawImage(canvas, 0, 0); context.drawImage(overlay, 0, 0);
+  // A lost WebGL context cannot be flushed or drawn; preserve an exportable
+  // vector document and include the overlay even while graphics recover.
+  if (!contextLost) { gl.finish(); context.drawImage(canvas, 0, 0); }
+  context.drawImage(overlay, 0, 0);
   const image = composite.toDataURL('image/png');
   const sx = (x: number) => (x - view.cx) / (view.upp * pixelRatio()) + width / 2;
   const sy = (y: number) => height / 2 - (y - view.cy) / (view.upp * pixelRatio());

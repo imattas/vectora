@@ -68,7 +68,11 @@ export function analyzeGeometry(
 
   const resolvePoint = (e: Expr): Point2 => {
     if (e.kind === 'var') {
-      const p = values.get(e.name);
+      const p = values.get(e.name) ?? (
+        Number.isFinite(env.get(`${e.name}_x`)) && Number.isFinite(env.get(`${e.name}_y`))
+          ? { x: env.get(`${e.name}_x`)!, y: env.get(`${e.name}_y`)! }
+          : undefined
+      );
       if (!p) throw new Error(`${e.name} is not a defined point.`);
       return p;
     }

@@ -53,6 +53,18 @@ describe('analyzeGeometry', () => {
     expect(result.readouts.get(-1)).toBe(`${Math.PI / 4} rad`);
   });
 
+  it('measures named animated points from their live scalar components', () => {
+    const result = analyzeGeometry([
+      { row: 0, text: 'angle(A, B, C)' },
+    ], new Map(), new Map([
+      ['A_x', 0], ['A_y', 1],
+      ['B_x', 0], ['B_y', 0],
+      ['C_x', 1], ['C_y', 0],
+    ]));
+    expect(result.unavailable).toEqual([]);
+    expect(result.readouts.get(0)).toBe('90°');
+  });
+
   it('normalizes a flattened literal center for circles', () => {
     const result = analyzeGeometry([{ row: 0, text: 'circle((0, 0), 2)' }]);
     expect(result.unavailable).toEqual([]);

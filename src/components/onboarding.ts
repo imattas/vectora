@@ -27,6 +27,7 @@ export function initOnboarding({ initiallyOpen }: OnboardingOptions): void {
   dialog.setAttribute('aria-describedby', 'onboarding-body');
   const shell = document.createElement('div'); shell.className = 'onboarding-shell';
   const close = document.createElement('button'); close.className = 'onboarding-close'; close.type = 'button'; close.append(makeIcon('close')); close.setAttribute('aria-label', 'Close onboarding');
+  close.addEventListener('pointerdown', event => event.stopPropagation());
   const content = document.createElement('div');
   const footer = document.createElement('div'); footer.className = 'onboarding-footer';
   shell.append(close, content, footer); dialog.append(shell); document.body.append(dialog);

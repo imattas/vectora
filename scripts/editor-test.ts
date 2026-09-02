@@ -544,6 +544,32 @@ await scenario('header popovers do not overlap and close with Escape', async () 
   }));
   check('graph settings opens as a dialog', exclusive.settings === false && exclusive.settingsPopup === 'dialog' && exclusive.close === 'Close graph settings' && settingsFocus === 'Grid', JSON.stringify({ ...exclusive, settingsFocus }));
   check('graph settings closes with Escape', closed.settings === true && closed.focused === 'graph-settings', JSON.stringify(closed));
+  await page.locator('#graph-settings').click();
+  await page.locator('.graph-settings-close').click();
+  const clickedClose = await page.evaluate(() => ({
+    hidden: document.querySelector<HTMLElement>('.graph-settings-popover')?.hidden,
+    focused: document.activeElement?.id,
+  }));
+  check('graph settings close button works', clickedClose.hidden === true && clickedClose.focused === 'graph-settings', JSON.stringify(clickedClose));
+  await page.locator('.symbol-keyboard-trigger').click();
+  await page.locator('.symbol-keyboard-close').click();
+  const keyboardClosed = await page.evaluate(() => document.querySelector<HTMLElement>('.symbol-keyboard-popover')?.hidden);
+  check('symbol keyboard close button works', keyboardClosed === true, String(keyboardClosed));
+});
+
+await scenario('animated named points keep angle readouts live', async () => {
+  await page.goto(ORIGIN + '/#' + [
+    'A = (cos(t), sin(t))',
+    'B = (0, 0)',
+    'C = (1, 0)',
+    'angle(A, B, C)',
+  ].map(encodeURIComponent).join(';'));
+  await page.waitForTimeout(250);
+  const state = await page.evaluate(() => ({
+    readout: document.querySelector('#geometry-readouts')?.textContent ?? '',
+    errors: [...document.querySelectorAll('.eq-error')].map(el => el.textContent),
+  }));
+  check('animated named points keep angle readouts live', /Angle:/i.test(state.readout) && state.errors.length === 0, JSON.stringify(state));
 });
 
 await scenario('graph canvas supports keyboard navigation', async () => {
@@ -565,7 +591,7 @@ await scenario('graph canvas supports keyboard navigation', async () => {
 });
 
 await scenario('SVG export creates a named download', async () => {
-  await page.goto(ORIGIN + '/#y%3Dsin(x)');
+  await load(page, ['y = sin(x)']);
   const download = await Promise.all([
     page.waitForEvent('download'),
     page.getByRole('button', { name: 'Save the current graph as an SVG file' }).click(),
