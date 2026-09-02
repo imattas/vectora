@@ -574,7 +574,8 @@ html, body {
 #sidebar-actions { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; padding: 10px 2px 9px; border-bottom: 1px solid var(--divider); }
 .add-menu { position: relative; display: inline-block; }
 .sidebar-action { min-height: 28px; margin-left: 0; padding: 0 9px; border: 1px solid transparent; border-radius: 4px; background: var(--surface-soft); color: var(--muted); font: 11px Inter, "Avenir Next", ui-sans-serif, system-ui, sans-serif; cursor: pointer; }
-.add-menu-trigger { width: 32px; height: 28px; border: 1px solid transparent; border-radius: 4px; background: var(--accent); color: var(--page-bg); font-size: 18px; cursor: pointer; }
+.add-menu-trigger { width: 32px; height: 28px; display: grid; place-items: center; border: 1px solid transparent; border-radius: 4px; background: var(--accent); color: var(--page-bg); cursor: pointer; }
+.add-menu-trigger svg, #state-reset svg { width: 17px; height: 17px; display: block; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .add-menu-trigger:hover, .add-menu-trigger:focus-visible { border-color: var(--accent); background: var(--accent); outline: 2px solid var(--focus-ring); outline-offset: 1px; }
 .sidebar-action:hover, .sidebar-action:focus-visible { color: var(--text); border-color: var(--panel-border); background: var(--eq-focus); outline: 2px solid var(--focus-ring); outline-offset: 1px; }
 .add-menu-popover { top: 32px; left: 0; min-width: 150px; }

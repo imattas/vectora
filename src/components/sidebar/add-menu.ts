@@ -1,4 +1,5 @@
 import { makeButton } from '../button/button.ts';
+import { makeIcon } from '../icon.ts';
 
 export interface AddMenuItem { label: string; text: string }
 let nextMenuId = 0;
@@ -7,12 +8,13 @@ export function makeAddMenu(items: readonly AddMenuItem[], onAdd: (text: string)
   const wrap = document.createElement('div'); wrap.className = 'add-menu';
   let lastFocus: HTMLElement | null = null;
   const close = () => { menu.hidden = true; trigger.setAttribute('aria-expanded', 'false'); lastFocus?.focus(); };
-  const trigger = makeButton('＋', 'Add an item', () => {
+  const trigger = makeButton('', 'Add an item', () => {
     lastFocus = document.activeElement instanceof HTMLElement ? document.activeElement : trigger;
     menu.hidden = !menu.hidden;
     trigger.setAttribute('aria-expanded', String(!menu.hidden));
     if (!menu.hidden) menu.querySelector<HTMLButtonElement>('button')?.focus();
   }, 'add-menu-trigger');
+  trigger.append(makeIcon('add'));
   trigger.setAttribute('aria-haspopup', 'menu'); trigger.setAttribute('aria-expanded', 'false');
   const menu = document.createElement('div'); menu.className = 'add-menu-popover'; menu.id = `add-menu-${++nextMenuId}`; menu.hidden = true;
   trigger.setAttribute('aria-controls', menu.id);
