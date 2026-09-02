@@ -308,6 +308,7 @@ function resize() {
 let renderQueued = false;
 let renderFallback: ReturnType<typeof setTimeout> | null = null;
 function requestRender() {
+  if (document.hidden) return;
   if (renderQueued) return;
   renderQueued = true;
   let ran = false;
@@ -319,6 +320,7 @@ function requestRender() {
       renderFallback = null;
     }
     renderQueued = false;
+    if (document.hidden) return;
     render();
   };
   requestAnimationFrame(run);
@@ -326,6 +328,9 @@ function requestRender() {
   // screenshot tooling); a timer backstop keeps frames coming there.
   renderFallback = setTimeout(run, 200);
 }
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) requestRender();
+});
 
 const startTime = performance.now();
 
