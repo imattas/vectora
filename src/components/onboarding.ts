@@ -48,7 +48,7 @@ export function initOnboarding({ initiallyOpen }: OnboardingOptions): void {
     const h = document.createElement('h1'); h.id = 'onboarding-title'; h.textContent = title;
     const p = document.createElement('p'); p.id = 'onboarding-body'; p.textContent = body;
     const hint = document.createElement('code'); hint.className = 'onboarding-hint'; hint.textContent = hintText;
-    const progress = document.createElement('div'); progress.className = 'onboarding-progress'; progress.setAttribute('aria-label', `Step ${step + 1} of ${STEPS.length}`);
+    const progress = document.createElement('div'); progress.className = 'onboarding-progress'; progress.setAttribute('role', 'progressbar'); progress.setAttribute('aria-label', 'Onboarding progress'); progress.setAttribute('aria-valuemin', '1'); progress.setAttribute('aria-valuemax', String(STEPS.length)); progress.setAttribute('aria-valuenow', String(step + 1)); progress.setAttribute('aria-valuetext', `Step ${step + 1} of ${STEPS.length}`);
     for (let i = 0; i < STEPS.length; i++) { const dot = document.createElement('span'); dot.className = i === step ? 'active' : ''; progress.append(dot); }
     const back = document.createElement('button'); back.className = 'onboarding-secondary'; back.type = 'button'; back.textContent = 'Back'; back.disabled = step === 0; back.onclick = () => { step--; render(); };
     const skip = document.createElement('button'); skip.className = 'onboarding-text'; skip.type = 'button'; skip.textContent = 'Skip onboarding'; skip.onclick = finish;

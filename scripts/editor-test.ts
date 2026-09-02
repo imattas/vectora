@@ -438,6 +438,13 @@ await scenario('first-run onboarding can be skipped and replayed', async () => {
   check('onboarding exposes dialog labels', labels.labelled && labels.described, JSON.stringify(labels));
   const primary = page.locator('.onboarding-dialog[open] .onboarding-primary');
   await primary.click({ timeout: 3000 });
+  const progress = await page.locator('.onboarding-progress').evaluate(el => ({
+    role: el.getAttribute('role'),
+    min: el.getAttribute('aria-valuemin'),
+    max: el.getAttribute('aria-valuemax'),
+    now: el.getAttribute('aria-valuenow'),
+  }));
+  check('onboarding exposes progress semantics', progress.role === 'progressbar' && progress.min === '1' && progress.max === '4' && progress.now === '1', JSON.stringify(progress));
   for (let i = 0; i < 3; i++) await primary.click({ timeout: 3000 });
   check('onboarding reaches the final step', await page.getByRole('button', { name: 'Finish' }).isVisible());
   await primary.click({ timeout: 3000 });
