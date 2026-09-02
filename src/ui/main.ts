@@ -2304,6 +2304,12 @@ listEl.addEventListener('input', e => {
 
 // The preview is intentionally non-editable. Reveal the canonical source at
 // pointer time so the browser can place a caret before selectionchange fires.
+const syncFocusedLines = () => {
+  const active = document.activeElement;
+  lineEls().forEach(line => line.classList.toggle('focused', !!active && line.contains(active)));
+};
+listEl.addEventListener('focusin', syncFocusedLines);
+listEl.addEventListener('focusout', () => queueMicrotask(syncFocusedLines));
 listEl.addEventListener('pointerdown', e => {
   const line = e.target instanceof HTMLElement ? e.target.closest('.eq-line') as HTMLElement | null : null;
   if (!line) return;

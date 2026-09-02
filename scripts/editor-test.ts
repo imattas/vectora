@@ -512,6 +512,23 @@ await scenario('the editor uses the technical type scale', async () => {
   check('editor uses the deliberate technical font stack', /Inter/i.test(state.editorFont) && /Inter/i.test(state.headerFont), JSON.stringify(state));
 });
 
+await scenario('blurred equations use visual math glyphs', async () => {
+  await load(page, ['sqrt(x) * x']);
+  await page.locator('.eq-line').first().click();
+  await page.locator('#graph-settings').click();
+  const state = await page.evaluate(() => {
+    const row = document.querySelector<HTMLElement>('.eq-line')!;
+    const source = row.querySelector<HTMLElement>('.math-source')!;
+    return {
+      focused: row.classList.contains('focused'),
+      sourceDisplay: getComputedStyle(source).display,
+      preview: row.querySelector<HTMLElement>('.math-preview')?.textContent,
+      root: row.querySelector('.math-root') !== null,
+    };
+  });
+  check('blurred equations use visual math glyphs', state.focused === false && state.sourceDisplay === 'none' && state.preview?.includes('√') === true && state.preview?.includes('×') === true && state.root, JSON.stringify(state));
+});
+
 await scenario('add menu supports keyboard navigation and exposes its relationship', async () => {
   await page.goto(ORIGIN + '/#y%3Dx');
   const trigger = page.locator('.add-menu-trigger');
