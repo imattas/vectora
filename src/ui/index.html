@@ -77,14 +77,14 @@
          aria-label="Resize the equations panel"
          title="Drag to resize the panel; double-click to reset"></div>
     <button id="state-reset" type="button" aria-label="Restart the simulation" title="Restart the simulation" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.3-5.7L4 8.6M4 4v4.6h4.6"/></svg></button>
-    <div id="sidebar-actions" aria-label="Add items"></div>
+    <div id="sidebar-actions" role="group" aria-label="Add items"></div>
     <div id="equations" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Equations, one per line" spellcheck="false" autocapitalize="off" autocorrect="off" enterkeyhint="enter"></div>
     <div id="geometry-readouts" hidden></div>
     <details id="examples">
       <summary>Examples</summary>
       <div id="examples-list"></div>
     </details>
-    <div id="keyboard-dock"></div>
+    <div id="keyboard-dock" role="group" aria-label="Calculator keyboard"></div>
   </div>
   <noscript>
     <h1>Vectora — free online graphing calculator</h1>
