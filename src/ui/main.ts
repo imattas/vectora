@@ -83,6 +83,9 @@ import { makeSymbolKeyboard } from '../components/symbol-keyboard.ts';
 import { makeIcon } from '../components/icon.ts';
 import { renderMathPreview } from '../components/math-display.ts';
 import { templateInsertion, type MathTemplate } from '../components/math-input.ts';
+import { mathfieldCursorToVectora, mathfieldValueToVectora, vectoraCursorToMathfield, vectoraToLatex } from '../components/mathfield-bridge.ts';
+import { MathfieldElement } from 'mathlive';
+import 'mathlive/fonts.css';
 import { DEFAULT_GRAPH_SETTINGS, loadGraphSettings, saveGraphSettings, type GraphSettings } from '../components/graph-settings.ts';
 import { getFunctionCompletions } from '../components/function-autocomplete.ts';
 import { initMobileSheet } from '../components/mobile-sheet.ts';
@@ -183,6 +186,8 @@ const COMB_STEP = 4;
 
 let nextId = 1;
 const equations: Equation[] = [];
+/** Only the active equation owns a structured MathLive editor. */
+let editingRow: number | null = null;
 let mode: '2d' | '3d' = '2d';
 let defs: Defs = emptyDefs();
 let defsAnimated = false;
@@ -1512,6 +1517,8 @@ const lineEls = (): HTMLElement[] =>
   [...listEl.children].filter((el): el is HTMLElement => el.classList.contains('eq-line'));
 
 const lineText = (line: HTMLElement): string => {
+  const field = line.querySelector<MathfieldElement>('.math-field-editor');
+  if (field) return mathfieldValueToVectora(field.getValue('ascii-math'));
   const copy = line.cloneNode(true) as HTMLElement;
   copy.querySelectorAll('.eq-widget').forEach(widget => widget.remove());
   copy.querySelectorAll('.math-preview').forEach(preview => preview.remove());
@@ -1568,6 +1575,12 @@ function setLineSource(line: HTMLElement, text: string): void {
 
 function caretPos(): { line: number; offset: number } | null {
   const sel = getSelection();
+  const activeField = document.activeElement?.closest<MathfieldElement>('.math-field-editor');
+  if (activeField) {
+    const line = activeField.closest('.eq-line');
+    const row = line ? lineEls().indexOf(line as HTMLElement) : -1;
+    if (row >= 0) return { line: row, offset: mathfieldCursorToVectora(activeField) };
+  }
   if (!sel?.focusNode || !listEl.contains(sel.focusNode)) return null;
   let node: Node | null = sel.focusNode;
   while (node && node !== listEl) {
@@ -1586,6 +1599,12 @@ function caretPos(): { line: number; offset: number } | null {
 function setCaret(line: number, offset: number) {
   const el = lineEls()[line];
   if (!el) return;
+  const field = el.querySelector<MathfieldElement>('.math-field-editor');
+  if (field) {
+    field.position = vectoraCursorToMathfield(equations[line]?.text ?? '', Math.max(0, offset), field);
+    field.focus();
+    return;
+  }
   const sel = getSelection()!;
   const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
   let remaining = offset;
@@ -1602,7 +1621,17 @@ function setCaret(line: number, offset: number) {
 }
 
 function selectLineRange(lineIndex: number, start: number, end: number) {
-  const source = lineEls()[lineIndex]?.querySelector<HTMLElement>('.math-source');
+  const line = lineEls()[lineIndex];
+  const field = line?.querySelector<MathfieldElement>('.math-field-editor');
+  if (field) {
+    field.selection = { ranges: [[
+      vectoraCursorToMathfield(equations[lineIndex]?.text ?? '', Math.max(0, start), field),
+      vectoraCursorToMathfield(equations[lineIndex]?.text ?? '', Math.max(0, end), field),
+    ]] };
+    field.focus();
+    return;
+  }
+  const source = line?.querySelector<HTMLElement>('.math-source');
   const text = source?.firstChild;
   if (!source || !text) return;
   const range = document.createRange(); range.setStart(text, Math.max(0, start)); range.setEnd(text, Math.max(0, end));
@@ -2070,20 +2099,71 @@ function reconcile() {
   badge();
 }
 
+function makeMathfield(eq: Equation, row: number, line: HTMLElement): MathfieldElement {
+  const field = new MathfieldElement();
+  field.className = 'math-field-editor';
+  field.setAttribute('aria-label', `Equation ${row + 1}`);
+  field.setAttribute('default-mode', 'math');
+  field.setAttribute('smart-fence', 'true');
+  field.setAttribute('smart-superscript', 'true');
+  field.setAttribute('math-virtual-keyboard-policy', 'manual');
+  field.value = vectoraToLatex(eq.text);
+  field.addEventListener('focus', () => { editingRow = row; line.classList.add('focused'); });
+  field.addEventListener('beforeinput', event => {
+    const input = event as InputEvent;
+    if (input.inputType === 'historyUndo') { event.preventDefault(); doUndo(); return; }
+    if (input.inputType === 'historyRedo') { event.preventDefault(); doRedo(); return; }
+    pendingCaret = caretPos();
+  });
+  field.addEventListener('input', () => {
+    const next = mathfieldValueToVectora(field.getValue('ascii-math'));
+    if (next === eq.text) return;
+    pushUndo(`edit:${row}`, pendingCaret ?? caretPos());
+    pendingCaret = null;
+    eq.text = next;
+    line.querySelector<HTMLElement>('.math-source')!.textContent = next;
+    recompileAll();
+    reconcile();
+    showAutocomplete();
+    saveUrl(true);
+    requestRender();
+  });
+  field.addEventListener('keydown', event => {
+    if (event.key !== 'Enter' || event.isComposing) return;
+    event.preventDefault();
+    insertStatements('\n');
+  });
+  field.addEventListener('blur', () => queueMicrotask(() => {
+    if (editingRow === row && !document.activeElement?.closest('.math-field-editor')) {
+      editingRow = null;
+      renderAll();
+    }
+  }));
+  return field;
+}
+
 /** Full rebuild of the editable DOM from state (loses caret; callers restore). */
 function renderAll() {
+  const active = caretPos();
+  const restoreRow = editingRow ?? active?.line ?? null;
+  const restoreOffset = active?.offset ?? equations[restoreRow ?? -1]?.text.length ?? 0;
   listEl.textContent = '';
-  for (const eq of equations) {
+  for (const [i, eq] of equations.entries()) {
     const line = document.createElement('div');
     line.className = 'eq-line';
     line.dataset.id = String(eq.id);
     const source = document.createElement('span'); source.className = 'math-source'; source.textContent = eq.text;
-    const preview = renderMathPreview(eq.text); preview.dataset.source = eq.text;
-    line.append(source, preview);
+    line.append(source);
+    if (i === editingRow) line.append(makeMathfield(eq, i, line));
+    else {
+      const preview = renderMathPreview(eq.text); preview.dataset.source = eq.text;
+      line.append(preview);
+    }
     if (!eq.text) line.append(document.createElement('br'));
     listEl.append(line);
   }
   reconcile();
+  if (restoreRow !== null && restoreRow === editingRow) setCaret(restoreRow, restoreOffset);
 }
 
 /**
@@ -2219,6 +2299,10 @@ function expandAt(lineIdx: number) {
 
 /** Selected lines as clean newline-joined text — widget content never leaks in. */
 function selectionAsText(): string | null {
+  const field = document.activeElement?.closest<MathfieldElement>('.math-field-editor');
+  if (field && !field.selectionIsCollapsed) {
+    return mathfieldValueToVectora(field.getValue(field.selection, 'ascii-math'));
+  }
   const sel = getSelection();
   if (!sel?.rangeCount || sel.isCollapsed) return null;
   const r = sel.getRangeAt(0);
@@ -2276,8 +2360,23 @@ function openTypedTemplate(): boolean {
 // focus is in a widget input the document selection still points at whatever
 // line the caret last touched, so acting on it edits an unrelated equation.
 const fromWidget = (e: Event): boolean =>
-  e.target instanceof Element && e.target.closest('.eq-widget') !== null;
+  e.target instanceof Element && (e.target.closest('.eq-widget') !== null || e.target.closest('.math-field-editor') !== null);
 let handledEnterAt = 0;
+
+function activateMathfield(row: number, offset: number): void {
+  if (row < 0 || !equations[row]) return;
+  editingRow = row;
+  renderAll();
+  setCaret(row, Math.min(offset, equations[row].text.length));
+  // A pointerdown that replaces the preview can leave the custom element's
+  // internal focus state ahead of the browser's activeElement. Reassert focus
+  // after the event finishes so physical and virtual keyboards target it.
+  setTimeout(() => {
+    if (editingRow !== row) return;
+    const field = lineEls()[row]?.querySelector<MathfieldElement>('.math-field-editor');
+    if (field) { field.position = vectoraCursorToMathfield(equations[row].text, offset, field); field.focus(); }
+  });
+}
 
 document.addEventListener('keydown', e => {
   if (!pendingTemplateCaret || e.ctrlKey || e.metaKey || e.altKey || e.key.length !== 1) return;
@@ -2353,14 +2452,13 @@ listEl.addEventListener('pointerdown', e => {
   const line = e.target instanceof HTMLElement ? e.target.closest('.eq-line') as HTMLElement | null : null;
   if (!line) return;
   line.classList.add('focused');
+  if (gutterHit(e)) return;
   const target = e.target instanceof HTMLElement ? e.target.closest('[data-source-start]') as HTMLElement | null : null;
-  if (target && target.dataset.sourceStart) {
-    const row = lineEls().indexOf(line);
-    const offset = Number(target.dataset.sourceStart);
-    if (row >= 0 && Number.isFinite(offset)) {
-      e.preventDefault();
-      setCaret(row, offset);
-    }
+  const row = lineEls().indexOf(line);
+  const offset = target ? Number(target.dataset.sourceStart) : lineText(line).length;
+  if (row >= 0 && Number.isFinite(offset) && !line.querySelector('.math-field-editor')) {
+    e.preventDefault();
+    activateMathfield(row, offset);
   }
 });
 

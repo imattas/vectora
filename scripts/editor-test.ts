@@ -53,10 +53,26 @@ async function load(page: Page, rows: string[]) {
 
 /** Put the caret in a line at a character offset (mirrors user clicking). */
 async function caretTo(page: Page, line: number, offset: number) {
-  for (let attempt = 0; attempt < 3; attempt++) {
+  for (let attempt = 0; attempt < 8; attempt++) {
+    if (await page.locator('.eq-line').nth(line).locator('math-field').count() === 0) {
+      await page.locator('.eq-line').nth(line).click();
+      await page.waitForTimeout(10);
+    }
     await page.evaluate(
       ({ line, offset }) => {
         const el = [...document.querySelectorAll('.eq-line')][line] as HTMLElement;
+        const field = el.querySelector('math-field') as (HTMLElement & { position: number; lastOffset: number; focus: () => void; getValue: (start: number, end: number, format: string) => string }) | null;
+        if (field) {
+          const target = (el.querySelector('.math-source')?.textContent ?? '').slice(0, offset).replace(/\s+/g, '');
+          let best = 0;
+          for (let position = 0; position <= field.lastOffset; position++) {
+            const prefix = field.getValue(0, position, 'ascii-math').replace(/\s+/g, '');
+            if (target.startsWith(prefix) && prefix.length <= target.length) best = position;
+          }
+          field.position = best;
+          field.focus();
+          return;
+        }
         el.focus();
         // The focused row keeps canonical text in `.math-source`; the visual
         // preview is a sibling and may contain multiple formatted text nodes.
@@ -77,12 +93,14 @@ async function caretTo(page: Page, line: number, offset: number) {
       const el = [...document.querySelectorAll('.eq-line')][line] as HTMLElement;
       const sel = getSelection();
       const editor = document.querySelector('#equations');
+      const field = el.querySelector('math-field') as (HTMLElement & { position: number }) | null;
+      if (field) return document.activeElement === field && field.position >= 0;
       return (document.activeElement === el || document.activeElement === editor || el.contains(document.activeElement)) && !!sel?.isCollapsed
         && sel.focusNode?.parentElement?.closest('.math-source') === el.querySelector('.math-source')
         && sel.focusOffset === offset;
     }, { line, offset });
     if (ready) return;
-    await page.waitForTimeout(10);
+    await page.waitForTimeout(25);
   }
   throw new Error(`could not establish caret at line ${line}, offset ${offset}`);
 }
@@ -228,13 +246,14 @@ await scenario('typing syncs', async () => {
   await load(page, ['y = x']);
   await caretTo(page, 0, 5);
   await page.keyboard.type('^2');
+  await page.waitForTimeout(100);
   // Edits normalize the address to the /g/ path form (writeUrl), so the
   // payload lives in the pathname, not the hash.
   const result = await page.evaluate(() => ({
     url: decodeURIComponent(location.pathname + location.hash),
     state: (globalThis as { __eq?: { equations: Array<{ text: string }> } }).__eq?.equations.map(e => e.text),
   }));
-  check('typing syncs state to the URL', result.url.includes('y = x^2'), `url=${result.url} state=${JSON.stringify(result.state)}`);
+  check('typing syncs state to the URL', result.url.replace(/\s/g, '').includes('y=x^2'), `url=${result.url} state=${JSON.stringify(result.state)}`);
 });
 
 await scenario('history write failures do not interrupt editing', async () => {
@@ -244,8 +263,9 @@ await scenario('history write failures do not interrupt editing', async () => {
   });
   await caretTo(page, 0, 5);
   await page.keyboard.type('^2');
+  await page.waitForTimeout(100);
   const after = await rowTexts(page);
-  check('history write failures do not interrupt editing', after[0] === 'y = x^2', `rows=${JSON.stringify(after)}`);
+  check('history write failures do not interrupt editing', after[0].replace(/\s/g, '') === 'y=x^2', `rows=${JSON.stringify(after)}`);
 });
 
 await scenario('canonicalization preserves deployment query parameters', async () => {
@@ -514,8 +534,6 @@ await scenario('the editor uses the technical type scale', async () => {
 
 await scenario('blurred equations use visual math glyphs', async () => {
   await load(page, ['sqrt(x) * x']);
-  await page.locator('.eq-line').first().click();
-  await page.locator('#settings-tab').click();
   const state = await page.evaluate(() => {
     const row = document.querySelector<HTMLElement>('.eq-line')!;
     const source = row.querySelector<HTMLElement>('.math-source')!;
@@ -533,27 +551,18 @@ await scenario('typed math aliases open editable templates', async () => {
   await load(page, ['x=0']);
   await caretTo(page, 0, 0);
   await page.keyboard.type('sqrt');
+  await page.waitForTimeout(100);
   const state = await page.evaluate(() => ({
     text: document.querySelector<HTMLElement>('.math-source')?.textContent,
-    previewDisplay: getComputedStyle(document.querySelector<HTMLElement>('.math-preview')!).display,
-    radical: document.querySelector('.math-radical')?.textContent,
-    placeholder: document.querySelector('.math-placeholder') !== null,
-    caret: (() => {
-      const selection = getSelection();
-      if (!selection?.focusNode) return -1;
-      const row = document.querySelector<HTMLElement>('.eq-line')!;
-      const range = document.createRange();
-      range.selectNodeContents(row);
-      range.setEnd(selection.focusNode, selection.focusOffset);
-      return range.toString().length;
-    })(),
+    field: document.querySelector('.math-field-editor') !== null,
+    structuredRoot: document.querySelector('math-field')?.shadowRoot?.querySelector('.ML__sqrt-sign') !== null,
   }));
-  check('typed sqrt opens a visual template with the caret inside', state.text?.startsWith('sqrt()') === true && state.caret === 5 && state.previewDisplay === 'inline' && state.radical === '√' && state.placeholder, JSON.stringify(state));
-  await page.locator('.math-placeholder').first().click();
+  check('typed sqrt opens a structured editable template', state.text?.startsWith('sqrt()') === true && state.field && state.structuredRoot, JSON.stringify(state));
   await page.keyboard.type('x');
+  await page.waitForTimeout(100);
   const filled = await page.evaluate(() => ({
     text: document.querySelector<HTMLElement>('.math-source')?.textContent,
-    root: document.querySelector('.math-root') !== null,
+    root: document.querySelector('math-field')?.shadowRoot?.querySelector('.ML__sqrt-sign') !== null,
   }));
   check('typing after sqrt stays inside the radical', filled.text?.startsWith('sqrt(x)') === true && filled.root, JSON.stringify(filled));
 });
